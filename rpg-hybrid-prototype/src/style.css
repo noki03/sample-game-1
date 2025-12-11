@@ -1,0 +1,18 @@
+/* Essential CSS Reset for Full-Screen Applications */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  /* Ensure the body and root container take up the full viewport */
+  width: 100%;
+  height: 100%;
+}
+
+/* Optional: Better Box-Sizing Model for Layouts */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
