@@ -1,27 +1,50 @@
 import React from 'react';
 import Tile from './Tile';
 
-const MapRenderer = ({ map, playerPosition }) => {
-    // Determine the map width dynamically or use a fixed value based on the design (20 columns)
+// Visibility Radius in tiles
+const VISIBILITY_RADIUS = 4;
+
+const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled }) => {
     const mapWidth = map.length > 0 ? map[0].length : 1;
 
     return (
         <div style={{
             display: 'inline-grid',
-            // Update: Use the calculated map width to create the grid columns (20 columns)
-            gridTemplateColumns: `repeat(${mapWidth}, 34px)`, // 32px tile + 2*1px borders
+            gridTemplateColumns: `repeat(${mapWidth}, 34px)`,
             gridGap: '0px',
-            border: '2px solid #555' // Slightly darker border
+            border: '4px solid #555',
+            backgroundColor: '#000',
+            // Center the map visually if smaller than container
+            alignSelf: 'center'
         }}>
             {map.map((row, y) => (
                 <React.Fragment key={y}>
-                    {row.map((tileType, x) => (
-                        <Tile
-                            key={`${x},${y}`}
-                            type={tileType}
-                            isPlayer={playerPosition.x === x && playerPosition.y === y}
-                        />
-                    ))}
+                    {row.map((tileType, x) => {
+                        const isMonsterAtTile = monsters.some(m => m.x === x && m.y === y);
+
+                        // --- FOG CALCULATION ---
+                        let isVisible = true;
+                        if (isFogEnabled) {
+                            // Euclidean distance formula (Pythagoras)
+                            const distance = Math.sqrt(
+                                Math.pow(x - playerPosition.x, 2) +
+                                Math.pow(y - playerPosition.y, 2)
+                            );
+                            // If tile is further than radius, it's hidden
+                            isVisible = distance < VISIBILITY_RADIUS;
+                        }
+                        // -----------------------
+
+                        return (
+                            <Tile
+                                key={`${x},${y}`}
+                                type={tileType}
+                                isPlayer={playerPosition.x === x && playerPosition.y === y}
+                                isMonster={isMonsterAtTile}
+                                isVisible={isVisible} // Pass visibility prop
+                            />
+                        );
+                    })}
                 </React.Fragment>
             ))}
         </div>
