@@ -5,4 +5,5 @@ export const initialStats = {
     maxHp: 100,
     xp: 0,
     nextLevelXp: 100,
+    potions: 3, // Start with 3 potions
 };
