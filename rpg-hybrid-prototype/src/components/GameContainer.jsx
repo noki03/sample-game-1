@@ -3,6 +3,7 @@ import { useGameLogic } from '../hooks/useGameLogic';
 import MapRenderer from './MapRenderer';
 import StatsPanel from './StatsPanel';
 import CombatLog from './CombatLog';
+import GameOverScreen from './GameOverScreen'; // <-- IMPORT
 
 const GameContainer = () => {
     const {
@@ -12,9 +13,10 @@ const GameContainer = () => {
         log,
         gameState,
         monsters,
-        isFogEnabled, // Get state
-        toggleFog,    // Get toggle function
-        handleKeyDown
+        isFogEnabled,
+        toggleFog,
+        handleKeyDown,
+        resetGame // <-- GET FUNCTION
     } = useGameLogic();
 
     useEffect(() => {
@@ -33,18 +35,24 @@ const GameContainer = () => {
             height: '100%',
             fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
             color: '#f0f0f0',
+            position: 'relative' // <-- CRITICAL: Allows absolute positioning of overlay
         }}>
+
+            {/* --- OVERLAY COMPONENT --- */}
+            <GameOverScreen gameState={gameState} onRestart={resetGame} />
+            {/* ------------------------- */}
+
             <h1 style={{ marginBottom: '20px', textShadow: '2px 2px 4px #000' }}>
                 Minimal RPG Prototype
             </h1>
 
-            {/* --- FOG TOGGLE BUTTON --- */}
+            {/* Fog Toggle Button */}
             <button
                 onClick={toggleFog}
                 style={{
                     marginBottom: '15px',
                     padding: '8px 16px',
-                    backgroundColor: isFogEnabled ? '#2c3e50' : '#27ae60', // Dark Blue vs Green
+                    backgroundColor: isFogEnabled ? '#2c3e50' : '#27ae60',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
@@ -54,29 +62,24 @@ const GameContainer = () => {
             >
                 Fog of War: <strong>{isFogEnabled ? 'ON' : 'OFF'}</strong> (Press F)
             </button>
-            {/* ------------------------- */}
 
             <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
-
-                {/* Left Col: Map */}
                 <div>
                     <MapRenderer
                         map={map}
                         playerPosition={position}
                         monsters={monsters}
-                        isFogEnabled={isFogEnabled} // Pass prop
+                        isFogEnabled={isFogEnabled}
                     />
                     <div style={{ marginTop: '10px', fontSize: '14px', color: '#888', textAlign: 'center' }}>
                         Pos: {position.x}, {position.y} | Monsters: {monsters.length}
                     </div>
                 </div>
 
-                {/* Right Col: HUD */}
                 <div style={{ width: '250px' }}>
                     <StatsPanel stats={player} />
                     <CombatLog log={log} gameState={gameState} />
                 </div>
-
             </div>
         </div>
     );
