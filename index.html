@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Web RPG - Level Up Focus</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="game-container">
+      <h1>Single-Player RPG Simulator</h1>
+
+      <section id="player-status">
+        <h2>👤 Player Status: <span id="player-name">Hero</span></h2>
+        <div class="stats-grid">
+          <p>Level: <span id="player-level">1</span></p>
+          <p>Attack Power: <span id="player-attack">10</span></p>
+
+          <p>
+            HP: <span id="player-current-hp">100</span>/<span id="player-max-hp"
+              >100</span
+            >
+          </p>
+          <div class="bar-container">
+            <div id="hp-bar" class="bar hp-bar"></div>
+          </div>
+
+          <p>
+            XP: <span id="player-current-xp">0</span>/<span
+              id="player-xp-needed"
+              >200</span
+            >
+          </p>
+          <div class="bar-container">
+            <div id="xp-bar" class="bar xp-bar"></div>
+          </div>
+        </div>
+
+        <button id="heal-button" class="action-button">💊 Full Heal</button>
+        <div id="level-up-notification" class="notification hidden">
+          LEVEL UP! You feel stronger!
+        </div>
+      </section>
+
+      <hr />
+
+      <section id="action-area">
+        <h2>⚔️ Combat Actions</h2>
+        <button class="combat-button" data-monster="A">
+          Fight Monster A (Weak)
+        </button>
+        <button class="combat-button" data-monster="B">
+          Fight Monster B (Medium)
+        </button>
+        <button class="combat-button" data-monster="C">
+          Fight Monster C (Boss)
+        </button>
+      </section>
+
+      <hr />
+
+      <section id="combat-log-area">
+        <h2>📜 Combat Log</h2>
+        <div id="combat-log">Welcome, Hero! Choose a monster to fight.</div>
+      </section>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
