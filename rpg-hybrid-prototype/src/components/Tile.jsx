@@ -1,14 +1,17 @@
 import React from 'react';
 
-// Simple presentational component for a single tile
-const Tile = ({ type, isPlayer }) => {
+const Tile = ({ type, isPlayer, isMonster, isVisible }) => {
     const getStyle = () => {
+        // Hidden (Fog)
+        if (!isVisible) {
+            return { backgroundColor: '#000' };
+        }
+
+        // Visible
         switch (type) {
-            case 1: return { backgroundColor: 'darkgray', color: 'white' }; // Wall
-            case 2: // Start position, treated as floor visually
-            case 0: return { backgroundColor: 'saddlebrown' }; // Floor
-            case 3: return { backgroundColor: 'red' }; // Monster
-            default: return { backgroundColor: 'lightgray' };
+            case 2:
+            case 0: return { backgroundColor: '#58432b' }; // Dark Earth
+            default: return { backgroundColor: '#222222' };
         }
     };
 
@@ -17,17 +20,24 @@ const Tile = ({ type, isPlayer }) => {
             style={{
                 width: '32px',
                 height: '32px',
-                border: '1px solid black',
+                // --- REMOVED BORDER FOR SEAMLESS LOOK ---
+                border: '1px solid #3e2f1f',
+
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 ...getStyle(),
             }}
         >
-            {/* Player visualization - simple dot for MVP */}
-            {isPlayer ? <span style={{ fontSize: '20px' }}>🏃</span> : ''}
-            {/* Uncomment below to see tile numbers for debugging */}
-            {/* {!isPlayer ? type : ''} */}
+            {isVisible && (
+                <>
+                    {isMonster ? (
+                        <span style={{ fontSize: '20px', zIndex: 10 }}>👹</span>
+                    ) : isPlayer ? (
+                        <span style={{ fontSize: '20px', zIndex: 20 }}>🏃</span>
+                    ) : null}
+                </>
+            )}
         </div>
     );
 };
