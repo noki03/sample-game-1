@@ -11,10 +11,12 @@ const GameContainer = () => {
         map,
         log,
         gameState,
+        monsters,
+        isFogEnabled, // Get state
+        toggleFog,    // Get toggle function
         handleKeyDown
     } = useGameLogic();
 
-    // Attach the keyboard listener to the document body when the component mounts
     useEffect(() => {
         document.addEventListener('keydown', handleKeyDown);
         return () => {
@@ -28,39 +30,54 @@ const GameContainer = () => {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            // Change minHeight to height to match App.jsx dimensions exactly
             height: '100%',
-
-            padding: '20px',
-            fontFamily: 'monospace',
-            backgroundColor: '#282828',
+            fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
             color: '#f0f0f0',
         }}>
-            <h1>Minimal 2D RPG Prototype</h1>
+            <h1 style={{ marginBottom: '20px', textShadow: '2px 2px 4px #000' }}>
+                Minimal RPG Prototype
+            </h1>
 
-            <div style={{
-                display: 'flex',
-                gap: '20px',
-                // Optional: Ensure the main content block doesn't interfere with centering
-                marginBottom: '20px'
-            }}>
+            {/* --- FOG TOGGLE BUTTON --- */}
+            <button
+                onClick={toggleFog}
+                style={{
+                    marginBottom: '15px',
+                    padding: '8px 16px',
+                    backgroundColor: isFogEnabled ? '#2c3e50' : '#27ae60', // Dark Blue vs Green
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                }}
+            >
+                Fog of War: <strong>{isFogEnabled ? 'ON' : 'OFF'}</strong> (Press F)
+            </button>
+            {/* ------------------------- */}
 
-                {/* Map View */}
+            <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
+
+                {/* Left Col: Map */}
                 <div>
-                    <h2>🗺️ Map</h2>
-                    <MapRenderer map={map} playerPosition={position} />
-                    <p style={{ marginTop: '10px', fontSize: '14px' }}>
-                        Current Position: ({position.x}, {position.y})
-                    </p>
+                    <MapRenderer
+                        map={map}
+                        playerPosition={position}
+                        monsters={monsters}
+                        isFogEnabled={isFogEnabled} // Pass prop
+                    />
+                    <div style={{ marginTop: '10px', fontSize: '14px', color: '#888', textAlign: 'center' }}>
+                        Pos: {position.x}, {position.y} | Monsters: {monsters.length}
+                    </div>
                 </div>
 
-                {/* Stats and Log */}
-                <div>
+                {/* Right Col: HUD */}
+                <div style={{ width: '250px' }}>
                     <StatsPanel stats={player} />
                     <CombatLog log={log} gameState={gameState} />
                 </div>
-            </div>
 
+            </div>
         </div>
     );
 };
