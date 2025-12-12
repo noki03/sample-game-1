@@ -2,13 +2,12 @@ import React from 'react';
 import Tile from './Tile';
 import FloatingText from './FloatingText';
 
-// --- UPDATED CONFIG ---
-const VISIBILITY_RADIUS = 8; // Increased from 5 to 8 for better visibility
-const VIEWPORT_WIDTH = 26;   // Increased from 20 to 26 (Wider view)
-const VIEWPORT_HEIGHT = 18;  // Increased from 15 to 18 (Taller view)
-// ----------------------
+const VISIBILITY_RADIUS = 8;
+const VIEWPORT_WIDTH = 26;
+const VIEWPORT_HEIGHT = 18;
 
-const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingTexts, hitTargetId }) => {
+// NEW PROP: visitedTiles
+const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingTexts, hitTargetId, visitedTiles }) => {
     const mapHeight = map.length;
     const mapWidth = map.length > 0 ? map[0].length : 0;
 
@@ -16,7 +15,6 @@ const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingText
     let cameraX = playerPosition.x - Math.floor(VIEWPORT_WIDTH / 2);
     let cameraY = playerPosition.y - Math.floor(VIEWPORT_HEIGHT / 2);
 
-    // Clamp camera
     cameraX = Math.max(0, Math.min(cameraX, mapWidth - VIEWPORT_WIDTH));
     cameraY = Math.max(0, Math.min(cameraY, mapHeight - VIEWPORT_HEIGHT));
 
@@ -42,14 +40,13 @@ const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingText
     return (
         <div style={{ position: 'relative', alignSelf: 'center' }}>
 
-            {/* Render Viewport Grid */}
             <div style={{
                 display: 'inline-grid',
                 gridTemplateColumns: `repeat(${VIEWPORT_WIDTH}, 32px)`,
                 gridGap: '0px',
-                border: '4px solid #444', // Slightly lighter border
+                border: '4px solid #444',
                 backgroundColor: '#000',
-                boxShadow: '0 0 20px rgba(0,0,0,0.8)' // Nice shadow for depth
+                boxShadow: '0 0 20px rgba(0,0,0,0.8)'
             }}>
                 {visibleGrid.map((row, relativeY) => (
                     <React.Fragment key={relativeY}>
@@ -58,7 +55,11 @@ const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingText
 
                             const monsterAtTile = monsters.find(m => m.x === x && m.y === y);
 
+                            // --- VISIBILITY LOGIC ---
                             let isVisible = true;
+                            // Check if Visited (Fast lookup in Set)
+                            const isVisited = visitedTiles ? visitedTiles.has(`${x},${y}`) : false;
+
                             if (isFogEnabled) {
                                 const distance = Math.sqrt(Math.pow(x - playerPosition.x, 2) + Math.pow(y - playerPosition.y, 2));
                                 isVisible = distance < VISIBILITY_RADIUS;
@@ -74,6 +75,7 @@ const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingText
                                     isBoss={monsterAtTile?.isBoss}
                                     isHit={monsterAtTile && monsterAtTile.id === hitTargetId}
                                     isVisible={isVisible}
+                                    isVisited={isVisited} // <-- PASS NEW PROP
                                 />
                             );
                         })}
@@ -81,7 +83,6 @@ const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingText
                 ))}
             </div>
 
-            {/* Floating Text Layer */}
             {floatingTexts.map(ft => {
                 if (
                     ft.x >= cameraX && ft.x < cameraX + VIEWPORT_WIDTH &&

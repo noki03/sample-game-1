@@ -123,7 +123,7 @@ code {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
   }
 }
 
@@ -140,6 +140,6 @@ code {
 }
 
 .hero-sprite {
-  animation: heroBob 1.5s ease-in-out infinite, heroPulse 2s infinite alternate;
+  animation: heroBob 2s ease-in-out infinite, heroPulse 2s infinite alternate;
   image-rendering: pixelated;
 }

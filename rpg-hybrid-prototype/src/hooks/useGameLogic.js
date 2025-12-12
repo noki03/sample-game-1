@@ -8,10 +8,9 @@ import { useCombat } from './useCombat';
 import { saveGameState, loadGameState, clearGameState } from '../db';
 
 const HEAL_AMOUNT = 50;
-
-// --- NEW MAP DIMENSIONS (Huge!) ---
 const MAP_WIDTH = 60;
 const MAP_HEIGHT = 40;
+const VISIBILITY_RADIUS = 8; // Match the renderer radius
 
 export const useGameLogic = () => {
     const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -19,6 +18,9 @@ export const useGameLogic = () => {
     const [player, setPlayer] = useState(initialStats);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [map, setMap] = useState(() => generateDungeon(MAP_WIDTH, MAP_HEIGHT));
+
+    // --- NEW: VISITED TILES STATE (Set of "x,y" strings) ---
+    const [visitedTiles, setVisitedTiles] = useState(new Set());
 
     const [gameState, setGameState] = useState('EXPLORATION');
     const [isFogEnabled, setIsFogEnabled] = useState(true);
@@ -45,14 +47,21 @@ export const useGameLogic = () => {
                 setIsFogEnabled(savedData.isFogEnabled);
                 setLoadedMonsters(savedData.monsters);
 
-                if (savedData.map) {
-                    setMap(savedData.map);
+                if (savedData.map) setMap(savedData.map);
+
+                // --- LOAD VISITED TILES ---
+                // Convert Array back to Set
+                if (savedData.visitedTiles) {
+                    setVisitedTiles(new Set(savedData.visitedTiles));
                 }
             } else {
                 console.log("No save found, setting up new game.");
                 const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
                 setMap(newMap);
-                setPosition(findRandomFloor(newMap));
+                const startPos = findRandomFloor(newMap);
+                setPosition(startPos);
+                // Mark start position as visited immediately
+                setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
             }
 
             setIsDataLoaded(true);
@@ -67,6 +76,30 @@ export const useGameLogic = () => {
         playerRef.current = player;
         positionRef.current = position;
     }, [player, position]);
+
+    // --- NEW: UPDATE VISITED HELPER ---
+    const updateVisited = useCallback((pos) => {
+        setVisitedTiles(prev => {
+            const newSet = new Set(prev);
+            // Calculate all tiles in radius
+            for (let y = pos.y - VISIBILITY_RADIUS; y <= pos.y + VISIBILITY_RADIUS; y++) {
+                for (let x = pos.x - VISIBILITY_RADIUS; x <= pos.x + VISIBILITY_RADIUS; x++) {
+                    const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+                    if (dist < VISIBILITY_RADIUS) {
+                        newSet.add(`${x},${y}`);
+                    }
+                }
+            }
+            return newSet;
+        });
+    }, []);
+
+    // Update visited tiles whenever position changes
+    useEffect(() => {
+        if (isDataLoaded) {
+            updateVisited(position);
+        }
+    }, [position, isDataLoaded, updateVisited]);
 
     const visuals = useVisuals();
 
@@ -89,14 +122,16 @@ export const useGameLogic = () => {
                 monsters,
                 gameState,
                 isFogEnabled,
-                map
+                map,
+                // Convert Set to Array for storage
+                visitedTiles: Array.from(visitedTiles)
             });
         };
 
         const timeoutId = setTimeout(saveData, 500);
         return () => clearTimeout(timeoutId);
 
-    }, [player, position, monsters, gameState, isFogEnabled, map, isDataLoaded]);
+    }, [player, position, monsters, gameState, isFogEnabled, map, visitedTiles, isDataLoaded]);
 
     // --- ACTIONS ---
     const toggleFog = useCallback(() => setIsFogEnabled(p => !p), []);
@@ -105,14 +140,17 @@ export const useGameLogic = () => {
     const resetGame = useCallback(async () => {
         await clearGameState();
 
-        // Generate fresh HUGE map
         const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
+        const startPos = findRandomFloor(newMap);
 
         setMap(newMap);
         setPlayer(initialStats);
-        setPosition(findRandomFloor(newMap));
+        setPosition(startPos);
         setGameState('EXPLORATION');
         setMonsters([]);
+        // Clear visited
+        setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
+
         visuals.resetVisuals();
     }, [setMonsters, visuals]);
 
@@ -199,15 +237,8 @@ export const useGameLogic = () => {
         const newX = position.x + dx;
         const newY = position.y + dy;
 
-        if (newY < 0 || newY >= map.length || newX < 0 || newX >= map[0].length) {
-            // No log needed for map boundary in large maps usually, just don't move
-            return;
-        }
-
-        // CHECK WALL COLLISION (1 = Wall)
-        if (map[newY][newX] === 1) {
-            return; // Just stop silently
-        }
+        if (newY < 0 || newY >= map.length || newX < 0 || newX >= map[0].length) return;
+        if (map[newY][newX] === 1) return;
 
         const encounteredMonster = monsters.find(m => m.x === newX && m.y === newY);
 
@@ -247,6 +278,8 @@ export const useGameLogic = () => {
         player, position, map, gameState, monsters, isFogEnabled,
         isInventoryOpen, toggleInventory, equipItem, unequipItem,
         toggleFog, handleKeyDown, resetGame,
+        // EXPORT VISITED TILES
+        visitedTiles,
         log: visuals.log, floatingTexts: visuals.floatingTexts, hitTargetId: visuals.hitTargetId
     };
 };

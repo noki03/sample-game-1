@@ -2,45 +2,55 @@ import React from 'react';
 import cobbleStoneImg from '../assets/cobble_stone.png';
 import playerImg from '../assets/player_1.png';
 
-const Tile = ({ type, isPlayer, isMonster, isBoss, isVisible, monsterLevel, isHit }) => {
+const Tile = ({ type, isPlayer, isMonster, isBoss, isVisible, isVisited, monsterLevel, isHit }) => {
 
     // --- TILE BACKGROUND ---
     const getStyle = () => {
-        // 1. Hidden (Fog)
-        if (!isVisible) return { backgroundColor: '#000' };
-
-        // 2. Base Texture (Applied to all visible floor/start tiles)
-        const baseStyle = {
-            // Always define these defaults to overwrite previous state
-            backgroundImage: `url(${cobbleStoneImg})`,
-            backgroundSize: 'cover',
-            backgroundRepeat: 'no-repeat',
-            imageRendering: 'pixelated',
-            // IMPORTANT: Explicitly reset special effects so they don't "trail"
-            backgroundBlendMode: 'normal'
-        };
-
-        // 3. Player Tile (Adds Shadow Gradient)
-        if (isPlayer) {
-            return {
-                ...baseStyle,
-                // We layer the Shadow Gradient ON TOP of the image using comma separation
-                backgroundImage: `radial-gradient(circle at bottom, rgba(0,0,0,0.6) 0%, transparent 70%), url(${cobbleStoneImg})`,
-                backgroundBlendMode: 'multiply' // Darkens the floor under the player
+        // 1. VISIBLE (Bright)
+        if (isVisible) {
+            const baseStyle = {
+                backgroundImage: `url(${cobbleStoneImg})`,
+                backgroundSize: 'cover',
+                backgroundRepeat: 'no-repeat',
+                imageRendering: 'pixelated',
+                backgroundBlendMode: 'normal'
             };
+
+            if (isPlayer) {
+                return {
+                    ...baseStyle,
+                    backgroundImage: `radial-gradient(circle at bottom, rgba(0,0,0,0.6) 0%, transparent 70%), url(${cobbleStoneImg})`,
+                    backgroundBlendMode: 'multiply'
+                };
+            }
+
+            switch (type) {
+                case 2: case 0: return baseStyle;
+                default: return { backgroundColor: '#222222' };
+            }
         }
 
-        // 4. Standard Tiles
-        switch (type) {
-            case 2: // Start
-            case 0: // Floor
-                return baseStyle;
-            default: // Walls
-                return { backgroundColor: '#222222' };
+        // 2. VISITED (Dimmed / Memory)
+        if (isVisited) {
+            switch (type) {
+                case 2: // Start
+                case 0: // Floor
+                    return {
+                        backgroundImage: `url(${cobbleStoneImg})`,
+                        backgroundSize: 'cover',
+                        backgroundRepeat: 'no-repeat',
+                        imageRendering: 'pixelated',
+                        filter: 'grayscale(100%) brightness(30%)'
+                    };
+                default: // Walls
+                    return { backgroundColor: '#1a1a1a' };
+            }
         }
+
+        // 3. HIDDEN (Black)
+        return { backgroundColor: '#000' };
     };
 
-    // Monster Sprite Styles
     const monsterStyle = {
         fontSize: '24px',
         zIndex: 20,
@@ -56,18 +66,19 @@ const Tile = ({ type, isPlayer, isMonster, isBoss, isVisible, monsterLevel, isHi
                 width: '32px',
                 height: '32px',
                 border: '1px solid transparent',
-                // Explicitly toggle shadow to prevent border artifacts
-                boxShadow: isPlayer ? 'none' : '0 0 0 0.5px #111',
+                // Allow the player image to overflow out of the top of the tile
+                overflow: 'visible',
+                position: 'relative', // Needed for absolute positioning of player
+
+                boxShadow: (isVisible || isVisited) && !isPlayer ? '0 0 0 0.5px #111' : 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                // Spread the dynamic style last
                 ...getStyle(),
             }}
         >
             {isVisible && (
                 <>
-                    {/* --- MONSTER RENDERING --- */}
                     {isMonster ? (
                         <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
                             <span
@@ -86,17 +97,26 @@ const Tile = ({ type, isPlayer, isMonster, isBoss, isVisible, monsterLevel, isHi
                             )}
                         </div>
                     ) : isPlayer ? (
-                        // --- PLAYER RENDERING ---
+                        // --- UPDATED PLAYER RENDERING ---
                         <img
                             src={playerImg}
                             alt="Hero"
                             className="hero-sprite"
                             style={{
-                                width: '32px',
-                                height: '32px',
+                                // 1. Allow aspect ratio to determine width
+                                width: 'auto',
+                                // 2. Set height taller than the tile (e.g., 42px or 48px)
+                                height: '42px',
+
+                                // 3. Position: Center horizontally, Anchor feet to bottom
+                                position: 'absolute',
+                                left: '50%',
+                                bottom: '4px', // Adjust this if feet are floating too high/low
+                                transform: 'translateX(-50%)', // Perfectly center based on dynamic width
+
                                 zIndex: 50,
-                                position: 'relative',
-                                top: '-4px'
+                                imageRendering: 'pixelated', // Critical for scaling down pixel art
+                                filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.8))' // Optional shadow for depth
                             }}
                         />
                     ) : null}

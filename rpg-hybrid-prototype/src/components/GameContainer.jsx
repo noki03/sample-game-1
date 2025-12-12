@@ -14,7 +14,7 @@ const GameContainer = () => {
         player, position, map, log, gameState, monsters, isFogEnabled,
         toggleFog, handleKeyDown, resetGame,
         isInventoryOpen, toggleInventory, equipItem, unequipItem,
-        floatingTexts, hitTargetId
+        floatingTexts, hitTargetId, visitedTiles
     } = useGameLogic();
 
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -107,7 +107,7 @@ const GameContainer = () => {
                         <MiniMap map={map} playerPosition={position} monsters={monsters} />
                         <MapRenderer
                             map={map} playerPosition={position} monsters={monsters} isFogEnabled={isFogEnabled}
-                            floatingTexts={floatingTexts} hitTargetId={hitTargetId}
+                            floatingTexts={floatingTexts} hitTargetId={hitTargetId} visitedTiles={visitedTiles}
                         />
                         <div style={{
                             marginTop: '10px', fontSize: '14px', color: '#666', textAlign: 'center',
