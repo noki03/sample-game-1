@@ -53,21 +53,19 @@ export const useMonsterManager = (map, playerPosition, playerLevel, gameState, a
             if (isFloor && !isOccupied && !isPlayer) {
                 if (needsBoss) {
                     const bossLevel = Math.max(10, currentLevel + 5);
-                    // BOSS HP
                     const bossHp = 100 + (bossLevel * 20);
                     setMonsters(prev => prev.some(m => m.isBoss) ? prev : [...prev, {
                         id: 'BOSS', x, y, level: bossLevel, isBoss: true,
-                        hp: bossHp, maxHp: bossHp // Added HP
+                        hp: bossHp, maxHp: bossHp
                     }]);
                 } else {
                     const variance = Math.floor(Math.random() * 6) - 3;
                     const mLevel = Math.max(1, currentLevel + variance);
-                    // NORMAL HP
                     const mHp = 15 + (mLevel * 5);
 
                     setMonsters(prev => [...prev, {
                         id: Date.now() + Math.random(), x, y, level: mLevel, isBoss: false,
-                        hp: mHp, maxHp: mHp // Added HP
+                        hp: mHp, maxHp: mHp
                     }]);
                 }
                 return;
@@ -106,9 +104,14 @@ export const useMonsterManager = (map, playerPosition, playerLevel, gameState, a
         return () => { clearInterval(spawnTimer); clearInterval(roamTimer); };
     }, [spawnMonster, gameState, map]);
 
+    // --- NEW: Function to update HP of a specific monster ---
+    const updateMonster = useCallback((updatedMonster) => {
+        setMonsters(prev => prev.map(m => m.id === updatedMonster.id ? updatedMonster : m));
+    }, []);
+
     const removeMonster = (id) => {
         setMonsters(prev => prev.filter(m => m.id !== id));
     };
 
-    return { monsters, setMonsters, removeMonster };
+    return { monsters, setMonsters, removeMonster, updateMonster };
 };

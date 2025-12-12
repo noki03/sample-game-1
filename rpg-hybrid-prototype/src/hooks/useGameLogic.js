@@ -90,13 +90,24 @@ export const useGameLogic = () => {
 
     const visuals = useVisuals();
 
-    // Removed updateMonster
-    const { monsters, setMonsters, removeMonster } = useMonsterManager(
-        map, position, player.level, gameState, visuals.addLog, loadedMonsters
+    // 1. GET updateMonster FROM MANAGER
+    const { monsters, setMonsters, removeMonster, updateMonster } = useMonsterManager(
+        map,
+        position,
+        player.level,
+        gameState,
+        visuals.addLog,
+        loadedMonsters
     );
 
     const { resolveCombat } = useCombat(
-        playerRef, positionRef, setPlayer, setGameState, removeMonster, visuals
+        playerRef,
+        positionRef,
+        setPlayer,
+        setGameState,
+        removeMonster,
+        updateMonster, // <--- NEW ARGUMENT
+        visuals
     );
 
     useCheatCodes(player, setPlayer, visuals.addLog);
