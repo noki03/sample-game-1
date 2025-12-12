@@ -1,7 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { initialStats } from '../data/initialStats';
-// REMOVED: initialMap import
-// NEW IMPORTS
 import { generateDungeon, findRandomFloor } from '../utils/mapGenerator';
 import { useMonsterManager } from './useMonsterManager';
 import { useCheatCodes } from './useCheatCodes';
@@ -10,16 +8,16 @@ import { useCombat } from './useCombat';
 import { saveGameState, loadGameState, clearGameState } from '../db';
 
 const HEAL_AMOUNT = 50;
-// Map Settings
-const MAP_WIDTH = 20;
-const MAP_HEIGHT = 15;
+
+// --- NEW MAP DIMENSIONS (Huge!) ---
+const MAP_WIDTH = 60;
+const MAP_HEIGHT = 40;
 
 export const useGameLogic = () => {
     const [isDataLoaded, setIsDataLoaded] = useState(false);
 
     const [player, setPlayer] = useState(initialStats);
-    const [position, setPosition] = useState({ x: 0, y: 0 }); // Placeholder
-    // Initialize with a generated map immediately
+    const [position, setPosition] = useState({ x: 0, y: 0 });
     const [map, setMap] = useState(() => generateDungeon(MAP_WIDTH, MAP_HEIGHT));
 
     const [gameState, setGameState] = useState('EXPLORATION');
@@ -47,18 +45,11 @@ export const useGameLogic = () => {
                 setIsFogEnabled(savedData.isFogEnabled);
                 setLoadedMonsters(savedData.monsters);
 
-                // Load saved map if it exists, otherwise use the one generated in useState
                 if (savedData.map) {
                     setMap(savedData.map);
                 }
             } else {
                 console.log("No save found, setting up new game.");
-                // Find valid start position on the generated map
-                // Note: 'map' state might not be accessible inside useEffect closure perfectly 
-                // without dependency, but since we generated it in useState, we can regenerate 
-                // or rely on a helper here.
-
-                // Safest approach for New Game:
                 const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
                 setMap(newMap);
                 setPosition(findRandomFloor(newMap));
@@ -98,7 +89,7 @@ export const useGameLogic = () => {
                 monsters,
                 gameState,
                 isFogEnabled,
-                map // <--- NOW SAVING THE MAP TOO
+                map
             });
         };
 
@@ -111,16 +102,15 @@ export const useGameLogic = () => {
     const toggleFog = useCallback(() => setIsFogEnabled(p => !p), []);
     const toggleInventory = useCallback(() => setIsInventoryOpen(p => !p), []);
 
-    // UPDATED RESET: Generates a fresh map
     const resetGame = useCallback(async () => {
         await clearGameState();
 
-        // Generate fresh map
+        // Generate fresh HUGE map
         const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
 
         setMap(newMap);
         setPlayer(initialStats);
-        setPosition(findRandomFloor(newMap)); // Place player on floor
+        setPosition(findRandomFloor(newMap));
         setGameState('EXPLORATION');
         setMonsters([]);
         visuals.resetVisuals();
@@ -210,15 +200,13 @@ export const useGameLogic = () => {
         const newY = position.y + dy;
 
         if (newY < 0 || newY >= map.length || newX < 0 || newX >= map[0].length) {
-            visuals.addLog('Ouch! Hit the map boundary.');
+            // No log needed for map boundary in large maps usually, just don't move
             return;
         }
 
-        // CHECK FOR WALLS (Existing map logic might not have checked tile types explicitly if you assumed bounds = walls)
-        // We must now check if the tile is a WALL
-        if (map[newY][newX] === 1) { // 1 = TILE_WALL
-            visuals.addLog("Bonk! Can't walk through walls.");
-            return;
+        // CHECK WALL COLLISION (1 = Wall)
+        if (map[newY][newX] === 1) {
+            return; // Just stop silently
         }
 
         const encounteredMonster = monsters.find(m => m.x === newX && m.y === newY);
