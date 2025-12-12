@@ -25,6 +25,8 @@ export const useGameLogic = () => {
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [loadedMonsters, setLoadedMonsters] = useState(null);
 
+    const lastActionTimeRef = useRef(0);
+
     // --- INITIAL LOAD ---
     useEffect(() => {
         const initGame = async () => {
@@ -35,6 +37,7 @@ export const useGameLogic = () => {
                 const safePlayer = {
                     ...initialStats,
                     ...savedData.player,
+                    speed: savedData.player.speed || initialStats.speed,
                     inventory: savedData.player.inventory || [],
                     equipment: savedData.player.equipment || { weapon: null, armor: null }
                 };
@@ -90,24 +93,12 @@ export const useGameLogic = () => {
 
     const visuals = useVisuals();
 
-    // 1. GET updateMonster FROM MANAGER
     const { monsters, setMonsters, removeMonster, updateMonster } = useMonsterManager(
-        map,
-        position,
-        player.level,
-        gameState,
-        visuals.addLog,
-        loadedMonsters
+        map, position, player.level, gameState, visuals.addLog, loadedMonsters
     );
 
     const { resolveCombat } = useCombat(
-        playerRef,
-        positionRef,
-        setPlayer,
-        setGameState,
-        removeMonster,
-        updateMonster, // <--- NEW ARGUMENT
-        visuals
+        playerRef, positionRef, setPlayer, setGameState, removeMonster, updateMonster, visuals
     );
 
     useCheatCodes(player, setPlayer, visuals.addLog);
@@ -145,6 +136,7 @@ export const useGameLogic = () => {
         setMonsters([]);
         setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
         visuals.resetVisuals();
+        lastActionTimeRef.current = 0;
     }, [setMonsters, visuals]);
 
     const equipItem = useCallback((item) => {
@@ -158,13 +150,14 @@ export const useGameLogic = () => {
 
             let newAttack = prev.attack;
             let newDefense = prev.defense;
+            let newSpeed = prev.speed;
+
+            const getItemBonus = (itm) => itm ? itm.bonus : 0;
 
             if (type === 'weapon') {
-                const oldBonus = oldItem?.bonus || 0;
-                newAttack = (newAttack - oldBonus) + item.bonus;
+                newAttack = (newAttack - getItemBonus(oldItem)) + item.bonus;
             } else if (type === 'armor') {
-                const oldBonus = oldItem?.bonus || 0;
-                newDefense = (newDefense - oldBonus) + item.bonus;
+                newDefense = (newDefense - getItemBonus(oldItem)) + item.bonus;
             }
 
             return {
@@ -172,7 +165,8 @@ export const useGameLogic = () => {
                 inventory: newInventory,
                 equipment: { ...currentEquipment, [type]: item },
                 attack: newAttack,
-                defense: newDefense
+                defense: newDefense,
+                speed: newSpeed
             };
         });
     }, []);
@@ -217,11 +211,11 @@ export const useGameLogic = () => {
         }
 
         const newHp = Math.min(current.hp + HEAL_AMOUNT, current.maxHp);
-        const actualHeal = newHp - current.hp;
+        setPlayer(prev => ({ ...prev, hp: newHp, potions: prev.potions - 1 }));
 
+        const actualHeal = newHp - current.hp;
         visuals.showFloatText(pos.x, pos.y, `🧪 +${actualHeal}`, '#2ecc71');
         visuals.addLog(`🧪 Used potion. HP: ${newHp}/${current.maxHp}`);
-        setPlayer(prev => ({ ...prev, hp: newHp, potions: prev.potions - 1 }));
     }, [gameState, visuals]);
 
     const movePlayer = useCallback((dx, dy) => {
@@ -244,24 +238,45 @@ export const useGameLogic = () => {
         setPosition({ x: newX, y: newY });
     }, [position, map, gameState, monsters, resolveCombat, visuals]);
 
+    // --- UPDATED INPUT HANDLING ---
     const handleKeyDown = useCallback((e) => {
         if (gameState === 'GAME_OVER') {
             if (e.key.toUpperCase() === 'R') resetGame();
             return;
         }
+
+        // --- TUNED SPEED CALCULATION ---
+        // Start snappy: 160ms base (vs 250ms before)
+        // Scale: -5ms per speed point
+        // Cap: Minimum 40ms
+        const currentSpeed = player.speed || 10;
+        const turnDelay = Math.max(40, 160 - (currentSpeed * 5));
+
+        const now = Date.now();
+        if (now - lastActionTimeRef.current < turnDelay) {
+            return;
+        }
+
+        let actionTaken = false;
+
         switch (e.key.toUpperCase()) {
-            case 'W': if (!isInventoryOpen) movePlayer(0, -1); break;
-            case 'S': if (!isInventoryOpen) movePlayer(0, 1); break;
-            case 'A': if (!isInventoryOpen) movePlayer(-1, 0); break;
-            case 'D': if (!isInventoryOpen) movePlayer(1, 0); break;
-            case 'H': healPlayer(); break;
-            case 'F': toggleFog(); break;
-            case 'I': toggleInventory(); break;
-            case 'ESCAPE': setIsInventoryOpen(false); break;
+            case 'W': if (!isInventoryOpen) { movePlayer(0, -1); actionTaken = true; } break;
+            case 'S': if (!isInventoryOpen) { movePlayer(0, 1); actionTaken = true; } break;
+            case 'A': if (!isInventoryOpen) { movePlayer(-1, 0); actionTaken = true; } break;
+            case 'D': if (!isInventoryOpen) { movePlayer(1, 0); actionTaken = true; } break;
+
+            case 'H': healPlayer(); actionTaken = true; break;
+            case 'F': toggleFog(); actionTaken = true; break;
+            case 'I': toggleInventory(); actionTaken = true; break;
+            case 'ESCAPE': setIsInventoryOpen(false); actionTaken = true; break;
             default: return;
         }
-        e.preventDefault();
-    }, [movePlayer, healPlayer, toggleFog, toggleInventory, isInventoryOpen, gameState, resetGame]);
+
+        if (actionTaken) {
+            lastActionTimeRef.current = now;
+            e.preventDefault();
+        }
+    }, [movePlayer, healPlayer, toggleFog, toggleInventory, isInventoryOpen, gameState, resetGame, player.speed]);
 
     if (!isDataLoaded) return { isLoading: true };
 

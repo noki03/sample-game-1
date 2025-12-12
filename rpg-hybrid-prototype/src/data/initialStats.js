@@ -7,10 +7,10 @@ export const initialStats = {
     potions: 3,
     attack: 5,
     defense: 0,
-    // --- NEW FIELDS ---
-    inventory: [], // Array of item objects
+    speed: 10, // NEW STAT (Controls Turn Delay & Evasion)
+    inventory: [],
     equipment: {
-        weapon: null, // Holds the equipped weapon object
-        armor: null   // Holds the equipped armor object
+        weapon: null,
+        armor: null
     }
 };
