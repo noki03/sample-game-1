@@ -6,6 +6,7 @@ import CombatLog from './CombatLog';
 import GameOverScreen from './GameOverScreen';
 import ConfirmationModal from './ConfirmationModal';
 import InventoryScreen from './InventoryScreen';
+import MiniMap from './MiniMap'; // <-- NEW IMPORT
 
 const GameContainer = () => {
     const {
@@ -22,11 +23,10 @@ const GameContainer = () => {
         handleKeyDown,
         resetGame,
 
-        // Inventory
         isInventoryOpen,
         toggleInventory,
         equipItem,
-        unequipItem, // <-- NEW
+        unequipItem,
 
         floatingTexts,
         hitTargetId
@@ -71,12 +71,11 @@ const GameContainer = () => {
                 message="Are you sure you want to delete your save file? This action cannot be undone."
             />
 
-            {/* NEW: Pass onUnequip to InventoryScreen */}
             <InventoryScreen
                 isOpen={isInventoryOpen}
                 player={player}
                 onEquip={equipItem}
-                onUnequip={unequipItem} // <-- PASS THIS PROP
+                onUnequip={unequipItem}
                 onClose={toggleInventory}
             />
 
@@ -99,7 +98,17 @@ const GameContainer = () => {
             </div>
 
             <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
-                <div>
+
+                {/* LEFT COLUMN: Map Area */}
+                <div style={{ position: 'relative' }}> {/* Relative container for Map + MiniMap */}
+
+                    {/* NEW: Render MiniMap overlapping the MapRenderer area */}
+                    <MiniMap
+                        map={map}
+                        playerPosition={position}
+                        monsters={monsters}
+                    />
+
                     <MapRenderer
                         map={map} playerPosition={position} monsters={monsters} isFogEnabled={isFogEnabled}
                         floatingTexts={floatingTexts} hitTargetId={hitTargetId}
@@ -109,6 +118,7 @@ const GameContainer = () => {
                     </div>
                 </div>
 
+                {/* RIGHT COLUMN: Stats */}
                 <div style={{ width: '250px' }}>
                     <StatsPanel stats={player} />
                     <CombatLog log={log} gameState={gameState} />
