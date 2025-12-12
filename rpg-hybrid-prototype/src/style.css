@@ -16,3 +16,57 @@ body,
 *::after {
   box-sizing: border-box;
 }
+
+/* --- NEW: VISUAL FEEDBACK STYLES --- */
+
+/* 1. Floating Combat Text Animation */
+@keyframes floatUpFade {
+  0% {
+    opacity: 1;
+    transform: translateY(0px) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-15px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1);
+  }
+}
+
+.floating-text-item {
+  position: absolute;
+  pointer-events: none; /* Ensure clicks pass through to the map */
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-weight: 900; /* Extra bold */
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000,
+    1px 1px 0 #000; /* Strong black outline */
+  z-index: 100; /* Floating above everything */
+  animation: floatUpFade 0.8s ease-out forwards; /* Run animation once and stay at end state */
+}
+
+/* 2. Hit Shake Animation */
+@keyframes shakeHit {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-3px, 1px);
+  }
+  40% {
+    transform: translate(3px, -1px);
+  }
+  60% {
+    transform: translate(-2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+}
+
+.shake-effect {
+  display: inline-block;
+  animation: shakeHit 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}

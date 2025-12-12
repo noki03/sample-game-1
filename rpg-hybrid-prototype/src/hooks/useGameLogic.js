@@ -2,71 +2,214 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { initialStats } from '../data/initialStats';
 import { initialMap, findPlayerStart } from '../data/initialMap';
 import { useMonsterManager } from './useMonsterManager';
-import { calculateCombatResult, processLevelUp } from '../utils/combatLogic';
 import { useCheatCodes } from './useCheatCodes';
+import { useVisuals } from './useVisuals';
+import { useCombat } from './useCombat';
+import { saveGameState, loadGameState, clearGameState } from '../db';
 
 const HEAL_AMOUNT = 50;
 const initialPlayerPos = findPlayerStart(initialMap);
 
 export const useGameLogic = () => {
-    // --- STATE ---
+    // --- LOADING STATE ---
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+    // --- CORE STATE ---
     const [player, setPlayer] = useState(initialStats);
     const [position, setPosition] = useState(initialPlayerPos);
     const [map] = useState(initialMap);
-    const [log, setLog] = useState([
-        'Welcome to the Minimal RPG!',
-        'Monsters now have random Levels!',
-        'Reach Level 5 to defeat the Dragon! 🐉',
-        'Use W, A, S, D to move.',
-        'Dev Mode: Shift+L (Lvl Up), Shift+P (Potions)'
-    ]);
     const [gameState, setGameState] = useState('EXPLORATION');
     const [isFogEnabled, setIsFogEnabled] = useState(true);
 
+    // --- INVENTORY STATE ---
+    const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+
+    const [loadedMonsters, setLoadedMonsters] = useState(null);
+
+    // --- 1. INITIAL LOAD EFFECT ---
+    useEffect(() => {
+        const initGame = async () => {
+            const savedData = await loadGameState();
+
+            if (savedData) {
+                console.log("Save found, loading...");
+                // MIGRATION SAFEGUARD
+                const safePlayer = {
+                    ...initialStats,
+                    ...savedData.player,
+                    inventory: savedData.player.inventory || [],
+                    equipment: savedData.player.equipment || { weapon: null, armor: null }
+                };
+
+                setPlayer(safePlayer);
+                setPosition(savedData.position);
+                setGameState(savedData.gameState);
+                setIsFogEnabled(savedData.isFogEnabled);
+                setLoadedMonsters(savedData.monsters);
+            } else {
+                console.log("No save found, starting new game.");
+            }
+
+            setIsDataLoaded(true);
+        };
+
+        initGame();
+    }, []);
+
+    // --- 2. REFS ---
+    const playerRef = useRef(player);
+    const positionRef = useRef(position);
+    useEffect(() => {
+        playerRef.current = player;
+        positionRef.current = position;
+    }, [player, position]);
+
+    // --- 3. SUB-HOOKS ---
+    const visuals = useVisuals();
+
+    const { monsters, setMonsters, removeMonster } = useMonsterManager(
+        map,
+        position,
+        player.level,
+        gameState,
+        visuals.addLog,
+        loadedMonsters
+    );
+
+    const { resolveCombat } = useCombat(playerRef, positionRef, setPlayer, setGameState, removeMonster, visuals);
+
+    useCheatCodes(player, setPlayer, visuals.addLog);
+
+    // --- 4. AUTO-SAVE EFFECT ---
+    useEffect(() => {
+        if (!isDataLoaded) return;
+
+        const saveData = async () => {
+            await saveGameState({
+                player,
+                position,
+                monsters,
+                gameState,
+                isFogEnabled
+            });
+        };
+
+        const timeoutId = setTimeout(saveData, 500);
+        return () => clearTimeout(timeoutId);
+
+    }, [player, position, monsters, gameState, isFogEnabled, isDataLoaded]);
+
+
     // --- ACTIONS ---
-    const addLog = useCallback((message) => {
-        setLog(prevLog => {
-            const newLog = [...prevLog, `[${new Date().toLocaleTimeString()}] ${message}`];
-            return newLog.slice(-10);
+
+    const toggleFog = useCallback(() => setIsFogEnabled(p => !p), []);
+    const toggleInventory = useCallback(() => setIsInventoryOpen(p => !p), []);
+
+    const resetGame = useCallback(async () => {
+        await clearGameState();
+        setPlayer(initialStats);
+        setPosition(findPlayerStart(initialMap));
+        setGameState('EXPLORATION');
+        setMonsters([]);
+        visuals.resetVisuals();
+    }, [setMonsters, visuals]);
+
+    const equipItem = useCallback((item) => {
+        setPlayer(prev => {
+            const currentEquipment = prev.equipment || { weapon: null, armor: null };
+            const currentInventory = prev.inventory || [];
+
+            const type = item.type;
+            const oldItem = currentEquipment[type];
+
+            const newInventory = currentInventory.filter(i => i.uid !== item.uid);
+            if (oldItem) {
+                newInventory.push(oldItem);
+            }
+
+            let newAttack = prev.attack;
+            let newDefense = prev.defense;
+
+            if (type === 'weapon') {
+                const oldBonus = oldItem?.bonus || 0;
+                newAttack = (newAttack - oldBonus) + item.bonus;
+            } else if (type === 'armor') {
+                const oldBonus = oldItem?.bonus || 0;
+                newDefense = (newDefense - oldBonus) + item.bonus;
+            }
+
+            return {
+                ...prev,
+                inventory: newInventory,
+                equipment: {
+                    ...currentEquipment,
+                    [type]: item
+                },
+                attack: newAttack,
+                defense: newDefense
+            };
         });
     }, []);
 
-    // --- SUB-HOOK: MONSTER MANAGEMENT ---
-    // Updated: Now passing player.level
-    const { monsters, setMonsters, removeMonster } = useMonsterManager(map, position, player.level, gameState, addLog);
+    // --- NEW: UNEQUIP ITEM LOGIC ---
+    const unequipItem = useCallback((type) => { // type = 'weapon' or 'armor'
+        setPlayer(prev => {
+            const currentEquipment = prev.equipment || { weapon: null, armor: null };
+            const itemToUnequip = currentEquipment[type];
 
-    // 2. ACTIVATE CHEAT CODES
-    useCheatCodes(player, setPlayer, addLog);
+            if (!itemToUnequip) return prev; // Nothing to unequip
 
-    // --- REFS ---
-    const playerRef = useRef(player);
-    useEffect(() => { playerRef.current = player; }, [player]);
+            // 1. Add back to inventory
+            const newInventory = [...(prev.inventory || []), itemToUnequip];
 
-    // --- GAMEPLAY ACTIONS ---
-    const toggleFog = useCallback(() => setIsFogEnabled(p => !p), []);
+            // 2. Remove stats
+            let newAttack = prev.attack;
+            let newDefense = prev.defense;
+
+            if (type === 'weapon') {
+                newAttack -= itemToUnequip.bonus;
+            } else if (type === 'armor') {
+                newDefense -= itemToUnequip.bonus;
+            }
+
+            return {
+                ...prev,
+                inventory: newInventory,
+                equipment: {
+                    ...currentEquipment,
+                    [type]: null // Clear slot
+                },
+                attack: newAttack,
+                defense: newDefense
+            };
+        });
+    }, []);
+    // ------------------------------
 
     const healPlayer = useCallback(() => {
         if (gameState !== 'EXPLORATION' && gameState !== 'COMBAT') return;
         const current = playerRef.current;
+        const pos = positionRef.current;
 
-        if (current.potions <= 0) { addLog("No potions left!"); return; }
-        if (current.hp >= current.maxHp) { addLog("HP is already full."); return; }
+        if (current.potions <= 0) {
+            visuals.showFloatText(pos.x, pos.y, 'NO POTIONS!', '#e74c3c');
+            visuals.addLog("No potions left!");
+            return;
+        }
+        if (current.hp >= current.maxHp) {
+            visuals.showFloatText(pos.x, pos.y, 'FULL HP', '#fff');
+            visuals.addLog("HP is already full.");
+            return;
+        }
 
         const newHp = Math.min(current.hp + HEAL_AMOUNT, current.maxHp);
-        addLog(`🧪 Used potion. HP: ${newHp}/${current.maxHp}`);
+        const actualHeal = newHp - current.hp;
+
+        visuals.showFloatText(pos.x, pos.y, `🧪 +${actualHeal}`, '#2ecc71');
+        visuals.addLog(`🧪 Used potion. HP: ${newHp}/${current.maxHp}`);
         setPlayer(prev => ({ ...prev, hp: newHp, potions: prev.potions - 1 }));
-    }, [gameState, addLog]);
+    }, [gameState, visuals]);
 
-    // --- RESET LOGIC ---
-    const resetGame = useCallback(() => {
-        setPlayer(initialStats);
-        setPosition(findPlayerStart(initialMap));
-        setGameState('EXPLORATION');
-        setLog(['Game Restarted.', 'Good luck! 🍀']);
-        setMonsters([]);
-    }, [setMonsters]);
-
-    // --- CORE MOVEMENT & COMBAT ORCHESTRATION ---
     const movePlayer = useCallback((dx, dy) => {
         if (gameState !== 'EXPLORATION') return;
 
@@ -74,7 +217,7 @@ export const useGameLogic = () => {
         const newY = position.y + dy;
 
         if (newY < 0 || newY >= map.length || newX < 0 || newX >= map[0].length) {
-            addLog('Ouch! Hit the map boundary.');
+            visuals.addLog('Ouch! Hit the map boundary.');
             return;
         }
 
@@ -82,70 +225,13 @@ export const useGameLogic = () => {
 
         if (encounteredMonster) {
             setGameState('COMBAT');
-
-            const monsterName = encounteredMonster.isBoss
-                ? '🐉 DRAGON'
-                : `👹 Lvl ${encounteredMonster.level} Monster`;
-
-            addLog(`Encounter: ${monsterName}!`);
-
-            setTimeout(() => {
-                const currentStats = playerRef.current;
-
-                // A. Calculate Outcome
-                const result = calculateCombatResult(currentStats, encounteredMonster);
-                addLog(result.message);
-
-                // B. Handle Game Over
-                if (result.outcome === 'GAME_OVER') {
-                    setGameState('GAME_OVER');
-                    setPlayer(prev => ({ ...prev, hp: 0 }));
-                    return;
-                }
-
-                // C. Handle Fleeing
-                if (result.outcome === 'FLED') {
-                    setGameState('EXPLORATION');
-                    setPlayer(prev => ({ ...prev, hp: result.newHp }));
-                    return;
-                }
-
-                // D. Handle Victory
-                setGameState('EXPLORATION');
-
-                // Use the dynamic XP calculated in utility
-                let xpGain = result.xpYield;
-
-                if (result.outcome === 'VICTORY_BOSS') {
-                    addLog(`✨ Gained ${xpGain} XP and 3 Potions!`);
-                } else {
-                    addLog(`+${xpGain} XP`);
-                }
-
-                let statsAfterXp = processLevelUp({ ...currentStats, hp: result.newHp }, xpGain);
-
-                // Loot logic
-                if (Math.random() > 0.7 || result.outcome === 'VICTORY_BOSS') {
-                    const lootAmount = result.outcome === 'VICTORY_BOSS' ? 3 : 1;
-                    statsAfterXp.updatedStats.potions += lootAmount;
-                    if (result.outcome !== 'VICTORY_BOSS') addLog("✨ Found a Potion!");
-                }
-
-                if (statsAfterXp.leveledUp) {
-                    addLog(`🎉 LEVEL UP! Level ${statsAfterXp.updatedStats.level}.`);
-                }
-
-                setPlayer(statsAfterXp.updatedStats);
-                removeMonster(encounteredMonster.id);
-
-            }, 1000);
+            resolveCombat(encounteredMonster);
             return;
         }
 
         setPosition({ x: newX, y: newY });
-    }, [position, map, gameState, addLog, monsters, removeMonster]);
+    }, [position, map, gameState, monsters, resolveCombat, visuals]);
 
-    // --- INPUT HANDLING ---
     const handleKeyDown = useCallback((e) => {
         if (gameState === 'GAME_OVER') {
             if (e.key.toUpperCase() === 'R') resetGame();
@@ -153,19 +239,46 @@ export const useGameLogic = () => {
         }
 
         switch (e.key.toUpperCase()) {
-            case 'W': movePlayer(0, -1); break;
-            case 'S': movePlayer(0, 1); break;
-            case 'A': movePlayer(-1, 0); break;
-            case 'D': movePlayer(1, 0); break;
+            case 'W': if (!isInventoryOpen) movePlayer(0, -1); break;
+            case 'S': if (!isInventoryOpen) movePlayer(0, 1); break;
+            case 'A': if (!isInventoryOpen) movePlayer(-1, 0); break;
+            case 'D': if (!isInventoryOpen) movePlayer(1, 0); break;
+
             case 'H': healPlayer(); break;
             case 'F': toggleFog(); break;
+
+            case 'I': toggleInventory(); break;
+            case 'ESCAPE': setIsInventoryOpen(false); break;
+
             default: return;
         }
         e.preventDefault();
-    }, [movePlayer, healPlayer, toggleFog, gameState, resetGame]);
+    }, [movePlayer, healPlayer, toggleFog, toggleInventory, isInventoryOpen, gameState, resetGame]);
+
+    if (!isDataLoaded) {
+        return { isLoading: true };
+    }
 
     return {
-        player, position, map, log, gameState, monsters,
-        isFogEnabled, toggleFog, handleKeyDown, resetGame
+        isLoading: false,
+        player,
+        position,
+        map,
+        gameState,
+        monsters,
+        isFogEnabled,
+        // Inventory Exports
+        isInventoryOpen,
+        toggleInventory,
+        equipItem,
+        unequipItem, // <-- NEW EXPORT
+
+        toggleFog,
+        handleKeyDown,
+        resetGame,
+
+        log: visuals.log,
+        floatingTexts: visuals.floatingTexts,
+        hitTargetId: visuals.hitTargetId
     };
 };

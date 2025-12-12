@@ -6,87 +6,112 @@ const BASE_DMG = 5;
 const DMG_PER_LEVEL = 3;
 
 export const calculateCombatResult = (player, monster) => {
-    // --- 1. BOSS LOGIC (Unchanged) ---
+    // --- 1. BOSS LOGIC ---
     if (monster.isBoss) {
         if (player.level < BOSS_LEVEL_REQ) {
-            const fleeDmg = 50;
+            const fleeDmg = Math.max(10, 50 - player.defense);
             const newHp = Math.max(player.hp - fleeDmg, 0);
             return {
                 outcome: newHp === 0 ? 'GAME_OVER' : 'FLED',
                 newHp,
                 damageTaken: fleeDmg,
                 xpYield: 0,
-                message: newHp === 0 ? "💀 The Dragon incinerated you!" : `🛡️ Too weak! Fled and took ${fleeDmg} DMG.`
+                message: newHp === 0 ? "💀 The Dragon incinerated you!" : `🛡️ Too weak! Fled taking ${fleeDmg} DMG.`
             };
         } else {
-            // Boss Victory
-            const bossDmg = 80;
+            // Boss Fight
+            const bossDmg = Math.max(10, 80 - player.defense);
             const newHp = Math.max(player.hp - bossDmg, 0);
             return {
                 outcome: newHp === 0 ? 'GAME_OVER' : 'VICTORY_BOSS',
                 newHp,
                 damageTaken: bossDmg,
-                xpYield: 500, // Boss gives fixed high XP
+                xpYield: 500,
                 message: newHp === 0 ? "💀 The Dragon defeated you!" : "⚔️ DRAGON SLAIN!"
             };
         }
     }
 
-    // --- 2. CALCULATE XP WITH DIMINISHING RETURNS ---
+    // --- 2. XP & LEVEL DIFF ---
     const rawXp = BASE_XP * monster.level;
     const levelDiff = player.level - monster.level;
     let multiplier = 1.0;
     let penaltyMsg = "";
 
     if (levelDiff >= 5) {
-        multiplier = 0.1; // Trivial (Grey)
+        multiplier = 0.1;
         penaltyMsg = " (Trivial)";
     } else if (levelDiff >= 3) {
-        multiplier = 0.5; // Easy (Green)
+        multiplier = 0.5;
         penaltyMsg = " (Low Yield)";
-    } else if (levelDiff >= 2) {
-        multiplier = 0.8; // Moderate
     }
-    // If difference is 0, 1, or negative (monster is stronger), 100% XP.
 
     const finalXp = Math.floor(rawXp * multiplier);
 
-    // --- 3. CALCULATE DAMAGE ---
-    // Damage logic remains: Base + (MobLevel * 3)
-    const monsterDmg = BASE_DMG + (monster.level * DMG_PER_LEVEL);
-    const newHp = Math.max(player.hp - monsterDmg, 0);
+    // --- 3. DAMAGE CALCULATION ---
+    let rawMonsterDmg = BASE_DMG + (monster.level * DMG_PER_LEVEL);
+    let actualDmg = Math.max(1, rawMonsterDmg - player.defense);
+
+    // Attack "Overpower" Mechanic
+    const overpowerThreshold = monster.level * 5;
+    let isCrit = false;
+
+    if (player.attack > overpowerThreshold) {
+        if (Math.random() > 0.7) {
+            actualDmg = 0;
+            isCrit = true;
+        }
+    }
+
+    const newHp = Math.max(player.hp - actualDmg, 0);
 
     if (newHp === 0) {
         return {
             outcome: 'GAME_OVER',
             newHp,
-            damageTaken: monsterDmg,
+            damageTaken: actualDmg,
             xpYield: 0,
             message: `💀 Lvl ${monster.level} Monster killed you!`
         };
     }
 
+    let msg = `Victory vs Lvl ${monster.level}!`;
+    if (isCrit) msg += ` 💥 ONE SHOT! (0 DMG)`;
+    else msg += ` -${actualDmg} HP`;
+    msg += penaltyMsg;
+
     return {
         outcome: 'VICTORY',
         newHp,
-        damageTaken: monsterDmg,
+        damageTaken: actualDmg,
         xpYield: finalXp,
-        // We append the penalty message to the log
-        message: `Victory vs Lvl ${monster.level}! -${monsterDmg} HP${penaltyMsg}`
+        message: msg
     };
 };
 
 export const processLevelUp = (currentStats, xpGain) => {
-    let { level, hp, maxHp, xp, nextLevelXp, potions } = currentStats;
-    xp += xpGain;
+    // FIX: Clone the ENTIRE currentStats object first.
+    // This preserves 'inventory', 'equipment', and any other fields we haven't touched.
+    const stats = { ...currentStats };
+
+    stats.xp += xpGain;
     let leveledUp = false;
-    while (xp >= nextLevelXp) {
-        level += 1;
-        maxHp += 20;
-        hp = maxHp;
-        xp = xp - nextLevelXp;
-        nextLevelXp = Math.floor(nextLevelXp * 1.5);
+
+    while (stats.xp >= stats.nextLevelXp) {
+        stats.level += 1;
+        stats.maxHp += 20;
+        stats.attack += 2;
+        stats.defense += 1;
+
+        stats.hp = stats.maxHp;
+        stats.xp = stats.xp - stats.nextLevelXp;
+        stats.nextLevelXp = Math.floor(stats.nextLevelXp * 1.5);
         leveledUp = true;
     }
-    return { updatedStats: { level, hp, maxHp, xp, nextLevelXp, potions }, leveledUp, level };
+
+    return {
+        updatedStats: stats, // Returns the full object with updates
+        leveledUp,
+        level: stats.level
+    };
 };
