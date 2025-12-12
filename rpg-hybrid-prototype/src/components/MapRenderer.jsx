@@ -6,12 +6,11 @@ const VISIBILITY_RADIUS = 8;
 const VIEWPORT_WIDTH = 26;
 const VIEWPORT_HEIGHT = 18;
 
-// NEW PROP: visitedTiles
 const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingTexts, hitTargetId, visitedTiles }) => {
     const mapHeight = map.length;
     const mapWidth = map.length > 0 ? map[0].length : 0;
 
-    // --- CAMERA LOGIC ---
+    // Camera Logic
     let cameraX = playerPosition.x - Math.floor(VIEWPORT_WIDTH / 2);
     let cameraY = playerPosition.y - Math.floor(VIEWPORT_HEIGHT / 2);
 
@@ -55,9 +54,7 @@ const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingText
 
                             const monsterAtTile = monsters.find(m => m.x === x && m.y === y);
 
-                            // --- VISIBILITY LOGIC ---
                             let isVisible = true;
-                            // Check if Visited (Fast lookup in Set)
                             const isVisited = visitedTiles ? visitedTiles.has(`${x},${y}`) : false;
 
                             if (isFogEnabled) {
@@ -73,9 +70,13 @@ const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingText
                                     isMonster={!!monsterAtTile}
                                     monsterLevel={monsterAtTile?.level}
                                     isBoss={monsterAtTile?.isBoss}
+                                    // Pass HP Stats (Ready for future usage)
+                                    monsterHp={monsterAtTile?.hp}
+                                    monsterMaxHp={monsterAtTile?.maxHp}
+
                                     isHit={monsterAtTile && monsterAtTile.id === hitTargetId}
                                     isVisible={isVisible}
-                                    isVisited={isVisited} // <-- PASS NEW PROP
+                                    isVisited={isVisited}
                                 />
                             );
                         })}

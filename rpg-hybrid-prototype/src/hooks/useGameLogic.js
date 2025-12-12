@@ -10,7 +10,7 @@ import { saveGameState, loadGameState, clearGameState } from '../db';
 const HEAL_AMOUNT = 50;
 const MAP_WIDTH = 60;
 const MAP_HEIGHT = 40;
-const VISIBILITY_RADIUS = 8; // Match the renderer radius
+const VISIBILITY_RADIUS = 8;
 
 export const useGameLogic = () => {
     const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -18,8 +18,6 @@ export const useGameLogic = () => {
     const [player, setPlayer] = useState(initialStats);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [map, setMap] = useState(() => generateDungeon(MAP_WIDTH, MAP_HEIGHT));
-
-    // --- NEW: VISITED TILES STATE (Set of "x,y" strings) ---
     const [visitedTiles, setVisitedTiles] = useState(new Set());
 
     const [gameState, setGameState] = useState('EXPLORATION');
@@ -27,7 +25,7 @@ export const useGameLogic = () => {
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [loadedMonsters, setLoadedMonsters] = useState(null);
 
-    // --- 1. INITIAL LOAD ---
+    // --- INITIAL LOAD ---
     useEffect(() => {
         const initGame = async () => {
             const savedData = await loadGameState();
@@ -48,19 +46,13 @@ export const useGameLogic = () => {
                 setLoadedMonsters(savedData.monsters);
 
                 if (savedData.map) setMap(savedData.map);
-
-                // --- LOAD VISITED TILES ---
-                // Convert Array back to Set
-                if (savedData.visitedTiles) {
-                    setVisitedTiles(new Set(savedData.visitedTiles));
-                }
+                if (savedData.visitedTiles) setVisitedTiles(new Set(savedData.visitedTiles));
             } else {
                 console.log("No save found, setting up new game.");
                 const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
                 setMap(newMap);
                 const startPos = findRandomFloor(newMap);
                 setPosition(startPos);
-                // Mark start position as visited immediately
                 setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
             }
 
@@ -77,11 +69,9 @@ export const useGameLogic = () => {
         positionRef.current = position;
     }, [player, position]);
 
-    // --- NEW: UPDATE VISITED HELPER ---
     const updateVisited = useCallback((pos) => {
         setVisitedTiles(prev => {
             const newSet = new Set(prev);
-            // Calculate all tiles in radius
             for (let y = pos.y - VISIBILITY_RADIUS; y <= pos.y + VISIBILITY_RADIUS; y++) {
                 for (let x = pos.x - VISIBILITY_RADIUS; x <= pos.x + VISIBILITY_RADIUS; x++) {
                     const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
@@ -94,20 +84,20 @@ export const useGameLogic = () => {
         });
     }, []);
 
-    // Update visited tiles whenever position changes
     useEffect(() => {
-        if (isDataLoaded) {
-            updateVisited(position);
-        }
+        if (isDataLoaded) updateVisited(position);
     }, [position, isDataLoaded, updateVisited]);
 
     const visuals = useVisuals();
 
+    // Removed updateMonster
     const { monsters, setMonsters, removeMonster } = useMonsterManager(
         map, position, player.level, gameState, visuals.addLog, loadedMonsters
     );
 
-    const { resolveCombat } = useCombat(playerRef, positionRef, setPlayer, setGameState, removeMonster, visuals);
+    const { resolveCombat } = useCombat(
+        playerRef, positionRef, setPlayer, setGameState, removeMonster, visuals
+    );
 
     useCheatCodes(player, setPlayer, visuals.addLog);
 
@@ -117,13 +107,7 @@ export const useGameLogic = () => {
 
         const saveData = async () => {
             await saveGameState({
-                player,
-                position,
-                monsters,
-                gameState,
-                isFogEnabled,
-                map,
-                // Convert Set to Array for storage
+                player, position, monsters, gameState, isFogEnabled, map,
                 visitedTiles: Array.from(visitedTiles)
             });
         };
@@ -148,9 +132,7 @@ export const useGameLogic = () => {
         setPosition(startPos);
         setGameState('EXPLORATION');
         setMonsters([]);
-        // Clear visited
         setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
-
         visuals.resetVisuals();
     }, [setMonsters, visuals]);
 
@@ -256,7 +238,6 @@ export const useGameLogic = () => {
             if (e.key.toUpperCase() === 'R') resetGame();
             return;
         }
-
         switch (e.key.toUpperCase()) {
             case 'W': if (!isInventoryOpen) movePlayer(0, -1); break;
             case 'S': if (!isInventoryOpen) movePlayer(0, 1); break;
@@ -278,7 +259,6 @@ export const useGameLogic = () => {
         player, position, map, gameState, monsters, isFogEnabled,
         isInventoryOpen, toggleInventory, equipItem, unequipItem,
         toggleFog, handleKeyDown, resetGame,
-        // EXPORT VISITED TILES
         visitedTiles,
         log: visuals.log, floatingTexts: visuals.floatingTexts, hitTargetId: visuals.hitTargetId
     };
