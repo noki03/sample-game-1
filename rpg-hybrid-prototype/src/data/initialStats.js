@@ -1,5 +1,6 @@
 export const initialStats = {
     level: 1,
+    floor: 1, // NEW: Tracks dungeon depth
     hp: 100,
     maxHp: 100,
     xp: 0,
@@ -7,7 +8,7 @@ export const initialStats = {
     potions: 3,
     attack: 5,
     defense: 0,
-    speed: 10, // NEW STAT (Controls Turn Delay & Evasion)
+    speed: 10,
     inventory: [],
     equipment: {
         weapon: null,

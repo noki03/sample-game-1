@@ -4,15 +4,13 @@ import playerImg from '../assets/player_1.png';
 
 const Tile = ({ type, isPlayer, isMonster, isBoss, isVisible, isVisited, monsterLevel, isHit, monsterHp, monsterMaxHp }) => {
 
-    // --- TILE BACKGROUND ---
     const getStyle = () => {
+        // --- VISIBLE ---
         if (isVisible) {
             const baseStyle = {
                 backgroundImage: `url(${cobbleStoneImg})`,
-                backgroundSize: 'cover',
-                backgroundRepeat: 'no-repeat',
-                imageRendering: 'pixelated',
-                backgroundBlendMode: 'normal'
+                backgroundSize: 'cover', backgroundRepeat: 'no-repeat',
+                imageRendering: 'pixelated', backgroundBlendMode: 'normal'
             };
 
             if (isPlayer) {
@@ -24,18 +22,21 @@ const Tile = ({ type, isPlayer, isMonster, isBoss, isVisible, isVisited, monster
             }
 
             switch (type) {
+                case 3: // STAIRS
+                    return { ...baseStyle, filter: 'sepia(30%)' }; // Slight tint for stairs
                 case 2: case 0: return baseStyle;
                 default: return { backgroundColor: '#222222' };
             }
         }
 
+        // --- VISITED ---
         if (isVisited) {
             switch (type) {
+                case 3: // STAIRS
                 case 2: case 0:
                     return {
                         backgroundImage: `url(${cobbleStoneImg})`,
-                        backgroundSize: 'cover',
-                        backgroundRepeat: 'no-repeat',
+                        backgroundSize: 'cover', backgroundRepeat: 'no-repeat',
                         imageRendering: 'pixelated',
                         filter: 'grayscale(100%) brightness(30%)'
                     };
@@ -52,9 +53,9 @@ const Tile = ({ type, isPlayer, isMonster, isBoss, isVisible, isVisited, monster
 
     const getHpBarColor = (current, max) => {
         const pct = current / max;
-        if (pct > 0.5) return '#2ecc71'; // Green
-        if (pct > 0.25) return '#f1c40f'; // Yellow
-        return '#e74c3c'; // Red
+        if (pct > 0.5) return '#2ecc71';
+        if (pct > 0.25) return '#f1c40f';
+        return '#e74c3c';
     };
 
     return (
@@ -69,28 +70,35 @@ const Tile = ({ type, isPlayer, isMonster, isBoss, isVisible, isVisited, monster
         >
             {isVisible && (
                 <>
+                    {/* RENDER STAIRS ICON */}
+                    {/* RENDER STAIRS (Type 3) */}
+                    {type === 3 && !isPlayer && !isMonster && (
+                        // REPLACED EMOJI WITH CSS "DUNGEON ENTRANCE"
+                        <div style={{
+                            width: '18px',
+                            height: '18px',
+                            backgroundColor: '#050505', // Almost black hole
+                            border: '2px solid #555',   // Stone trim
+                            boxShadow: 'inset 0 0 5px #000', // Inner shadow for depth
+                            zIndex: 5,
+                            // Optional: Rotate slightly for diamond shape? 
+                            // transform: 'rotate(45deg)' 
+                        }} />
+                    )}
+
                     {isMonster ? (
                         <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-
-                            {/* --- UPDATED HP BAR LOGIC --- */}
+                            {/* HP BAR */}
                             {monsterMaxHp && (
                                 <div style={{
-                                    position: 'absolute',
-                                    top: '-6px',
-                                    left: '0',
-                                    width: '100%',
-                                    height: '4px',
-                                    backgroundColor: '#000',
-                                    borderRadius: '2px',
-                                    zIndex: 40,
-                                    border: '1px solid #000'
+                                    position: 'absolute', top: '-6px', left: '0', width: '100%', height: '4px',
+                                    backgroundColor: '#000', borderRadius: '2px', zIndex: 40, border: '1px solid #000'
                                 }}>
                                     <div style={{
                                         width: `${Math.max(0, (monsterHp / monsterMaxHp) * 100)}%`,
                                         height: '100%',
                                         backgroundColor: getHpBarColor(monsterHp, monsterMaxHp),
-                                        borderRadius: '1px',
-                                        transition: 'width 0.2s'
+                                        borderRadius: '1px', transition: 'width 0.2s'
                                     }} />
                                 </div>
                             )}

@@ -5,19 +5,22 @@ const TILE_FLOOR = 0;
 const MONSTER_MOVE_INTERVAL = 1000;
 const MONSTER_SPAWN_INTERVAL = 2000;
 
-export const useMonsterManager = (map, playerPosition, playerLevel, gameState, addLog, savedMonsters) => {
+// NEW PROP: floor
+export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameState, addLog, savedMonsters) => {
     const [monsters, setMonsters] = useState(savedMonsters || []);
 
     const monstersRef = useRef(monsters);
     const positionRef = useRef(playerPosition);
     const playerLevelRef = useRef(playerLevel);
+    const floorRef = useRef(floor); // Track floor ref
     const hasLoggedDragonRef = useRef(false);
 
     useEffect(() => {
         monstersRef.current = monsters;
         positionRef.current = playerPosition;
         playerLevelRef.current = playerLevel;
-    }, [monsters, playerPosition, playerLevel]);
+        floorRef.current = floor; // Update ref
+    }, [monsters, playerPosition, playerLevel, floor]);
 
     // Dragon Log
     useEffect(() => {
@@ -33,11 +36,16 @@ export const useMonsterManager = (map, playerPosition, playerLevel, gameState, a
         const currentMonsters = monstersRef.current;
         const playerPos = positionRef.current;
         const currentLevel = playerLevelRef.current;
+        const currentFloor = floorRef.current || 1; // Default to 1
 
         if (!map || map.length === 0) return;
 
+        // CHECK: IS THIS A BOSS FLOOR? (Every 5th floor)
+        const isBossFloor = (currentFloor % 5 === 0);
         const bossExists = currentMonsters.some(m => m.isBoss);
-        const needsBoss = !bossExists;
+
+        // Only spawn boss if it's the right floor AND one doesn't exist yet
+        const needsBoss = isBossFloor && !bossExists;
 
         if (!needsBoss && currentMonsters.length >= MAX_MONSTERS) return;
 
@@ -59,6 +67,7 @@ export const useMonsterManager = (map, playerPosition, playerLevel, gameState, a
                         hp: bossHp, maxHp: bossHp
                     }]);
                 } else {
+                    // Normal Monster Spawn
                     const variance = Math.floor(Math.random() * 6) - 3;
                     const mLevel = Math.max(1, currentLevel + variance);
                     const mHp = 15 + (mLevel * 5);
@@ -104,7 +113,6 @@ export const useMonsterManager = (map, playerPosition, playerLevel, gameState, a
         return () => { clearInterval(spawnTimer); clearInterval(roamTimer); };
     }, [spawnMonster, gameState, map]);
 
-    // --- NEW: Function to update HP of a specific monster ---
     const updateMonster = useCallback((updatedMonster) => {
         setMonsters(prev => prev.map(m => m.id === updatedMonster.id ? updatedMonster : m));
     }, []);
