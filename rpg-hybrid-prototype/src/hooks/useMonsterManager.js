@@ -5,21 +5,20 @@ const TILE_FLOOR = 0;
 const MONSTER_MOVE_INTERVAL = 1000;
 const MONSTER_SPAWN_INTERVAL = 2000;
 
-// NEW PROP: floor
 export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameState, addLog, savedMonsters) => {
     const [monsters, setMonsters] = useState(savedMonsters || []);
 
     const monstersRef = useRef(monsters);
     const positionRef = useRef(playerPosition);
     const playerLevelRef = useRef(playerLevel);
-    const floorRef = useRef(floor); // Track floor ref
+    const floorRef = useRef(floor);
     const hasLoggedDragonRef = useRef(false);
 
     useEffect(() => {
         monstersRef.current = monsters;
         positionRef.current = playerPosition;
         playerLevelRef.current = playerLevel;
-        floorRef.current = floor; // Update ref
+        floorRef.current = floor;
     }, [monsters, playerPosition, playerLevel, floor]);
 
     // Dragon Log
@@ -36,15 +35,13 @@ export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameS
         const currentMonsters = monstersRef.current;
         const playerPos = positionRef.current;
         const currentLevel = playerLevelRef.current;
-        const currentFloor = floorRef.current || 1; // Default to 1
+        const currentFloor = floorRef.current || 1;
 
         if (!map || map.length === 0) return;
 
-        // CHECK: IS THIS A BOSS FLOOR? (Every 5th floor)
+        // Boss on every 5th floor
         const isBossFloor = (currentFloor % 5 === 0);
         const bossExists = currentMonsters.some(m => m.isBoss);
-
-        // Only spawn boss if it's the right floor AND one doesn't exist yet
         const needsBoss = isBossFloor && !bossExists;
 
         if (!needsBoss && currentMonsters.length >= MAX_MONSTERS) return;
@@ -59,21 +56,28 @@ export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameS
             const isPlayer = playerPos.x === x && playerPos.y === y;
 
             if (isFloor && !isOccupied && !isPlayer) {
+                // SCALING LOGIC: Monsters get stronger deeper in the dungeon
+                // Base Level = Player Level + (Floor / 2)
+                const baseDifficulty = Math.max(1, currentLevel + Math.floor((currentFloor - 1) / 2));
+
                 if (needsBoss) {
-                    const bossLevel = Math.max(10, currentLevel + 5);
-                    const bossHp = 100 + (bossLevel * 20);
+                    const bossLevel = baseDifficulty + 5;
+                    const bossHp = 200 + (bossLevel * 30); // Boss is a tank
                     setMonsters(prev => prev.some(m => m.isBoss) ? prev : [...prev, {
-                        id: 'BOSS', x, y, level: bossLevel, isBoss: true,
-                        hp: bossHp, maxHp: bossHp
+                        id: 'BOSS', x, y, level: bossLevel, isBoss: true, isMonster: true, // ADDED FLAG
+                        hp: bossHp, maxHp: bossHp,
+                        name: 'Dragon King'
                     }]);
                 } else {
-                    // Normal Monster Spawn
-                    const variance = Math.floor(Math.random() * 6) - 3;
-                    const mLevel = Math.max(1, currentLevel + variance);
-                    const mHp = 15 + (mLevel * 5);
+                    const variance = Math.floor(Math.random() * 3);
+                    const mLevel = Math.max(1, baseDifficulty + variance);
+
+                    // BALANCED HP: 20 + (Level * 10). Lvl 1 = 30 HP.
+                    const mHp = 20 + (mLevel * 10);
 
                     setMonsters(prev => [...prev, {
-                        id: Date.now() + Math.random(), x, y, level: mLevel, isBoss: false,
+                        id: Date.now() + Math.random(), x, y, level: mLevel,
+                        isBoss: false, isMonster: true, // <--- CRITICAL FIX: Added this flag
                         hp: mHp, maxHp: mHp
                     }]);
                 }
@@ -82,6 +86,9 @@ export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameS
             attempts++;
         }
     }, [map]);
+
+    // ... (Timers and Helper functions remain the same) ...
+    // Paste existing timer useEffect and updateMonster/removeMonster here
 
     // Timers
     useEffect(() => {

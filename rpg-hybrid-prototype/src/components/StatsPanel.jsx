@@ -1,8 +1,26 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const StatsPanel = ({ stats }) => {
-    // Helper to calculate XP percentage safely
+    // Force local update every second to animate cooldown
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const timer = setInterval(() => setTick(t => t + 1), 500);
+        return () => clearInterval(timer);
+    }, []);
+
+    // XP Calc
     const xpPercent = Math.min(100, Math.max(0, (stats.xp / stats.nextLevelXp) * 100));
+
+    // HEAL SKILL CALC
+    const now = Date.now();
+    const lastHeal = stats.lastHealTime || 0;
+    const cooldown = stats.healCooldown || 20000;
+    const timePassed = now - lastHeal;
+
+    // Percent Ready (0 to 100%)
+    let skillPercent = Math.min(100, (timePassed / cooldown) * 100);
+    const isReady = skillPercent >= 100;
+    const secondsWait = Math.ceil((cooldown - timePassed) / 1000);
 
     return (
         <div style={{
@@ -39,10 +57,31 @@ const StatsPanel = ({ stats }) => {
                 <div style={{ color: '#f1c40f' }}>⚔️ ATK: {stats.attack}</div>
                 <div style={{ color: '#3498db' }}>🛡️ DEF: {stats.defense}</div>
                 <div style={{ color: '#2ecc71' }}>👟 SPD: {stats.speed || 10}</div>
-                <div style={{ color: '#9b59b6' }}>🧪 POT: {stats.potions}</div>
+
+                {/* NEW HEAL SKILL UI */}
+                <div style={{
+                    color: isReady ? '#2ecc71' : '#95a5a6',
+                    border: '1px solid #444',
+                    padding: '2px 5px',
+                    borderRadius: '4px',
+                    textAlign: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{
+                        position: 'absolute', left: 0, top: 0, bottom: 0,
+                        width: `${skillPercent}%`,
+                        backgroundColor: '#27ae60',
+                        opacity: 0.3,
+                        zIndex: 0
+                    }} />
+                    <span style={{ position: 'relative', zIndex: 1, fontWeight: 'bold' }}>
+                        {isReady ? "💚 HEAL (H)" : `⏳ ${secondsWait}s`}
+                    </span>
+                </div>
             </div>
 
-            {/* NEW: XP Progress Bar */}
+            {/* XP Progress Bar */}
             <div style={{ marginTop: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '3px', color: '#ccc' }}>
                     <span style={{ color: '#f1c40f', fontWeight: 'bold' }}>XP</span>
@@ -52,10 +91,10 @@ const StatsPanel = ({ stats }) => {
                     <div style={{
                         width: `${xpPercent}%`,
                         height: '100%',
-                        backgroundColor: '#f1c40f', // Gold Color for XP
+                        backgroundColor: '#f1c40f',
                         borderRadius: '3px',
                         transition: 'width 0.3s',
-                        boxShadow: '0 0 5px rgba(241, 196, 15, 0.5)' // Subtle glow
+                        boxShadow: '0 0 5px rgba(241, 196, 15, 0.5)'
                     }} />
                 </div>
             </div>
