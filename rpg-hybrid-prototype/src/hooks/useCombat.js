@@ -8,29 +8,31 @@ export const useCombat = (playerRef, positionRef, setPlayer, setGameState, remov
 
         // 1. PLAYER ATTACKS MONSTER
         const hitResult = calculateHit(player, monster);
-        const damage = hitResult.damage;
+        let damage = hitResult.damage;
+
+        // --- CHEAT CHECK: ONE HIT KILL ---
+        if (player.isOneHitKill) {
+            damage = 99999;
+        }
 
         // Visuals
-        if (hitResult.isMiss) {
+        if (hitResult.isMiss && !player.isOneHitKill) {
             visuals.showFloatText(monster.x, monster.y, "MISS", "#ccc");
             visuals.addLog(`You missed the ${monster.isBoss ? 'Dragon' : 'Monster'}.`);
         } else {
             const critText = hitResult.isCrit ? "CRIT! " : "";
             visuals.showFloatText(monster.x, monster.y, `${critText}${damage}`, hitResult.isCrit ? '#f1c40f' : '#fff');
             visuals.addLog(`You hit ${monster.isBoss ? 'Dragon' : 'Monster'} for ${damage} damage.`);
-            // Remove sfx call if you aren't using sounds yet
-            // sfx.hit(); 
         }
 
         // 2. APPLY DAMAGE TO MONSTER
         const newMonsterHp = monster.hp - damage;
 
         if (newMonsterHp <= 0) {
-            // --- MONSTER DIES ---
+            // MONSTER DIES
             removeMonster(monster.id);
             visuals.addLog(`💀 You killed the ${monster.isBoss ? 'Dragon' : 'Monster'}!`);
 
-            // XP Gain logic
             const xpGain = monster.level * 10 * (monster.isBoss ? 5 : 1);
             const statsAfterXp = processLevelUp(player, xpGain);
 
@@ -48,9 +50,7 @@ export const useCombat = (playerRef, positionRef, setPlayer, setGameState, remov
             }
 
         } else {
-            // --- MONSTER SURVIVES ---
-            // Just update its HP. 
-            // WE REMOVED THE RETALIATION ATTACK HERE.
+            // MONSTER SURVIVES
             updateMonster({ ...monster, hp: newMonsterHp });
         }
 

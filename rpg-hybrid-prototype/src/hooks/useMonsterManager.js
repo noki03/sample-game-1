@@ -2,28 +2,25 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 
 const MAX_MONSTERS = 10;
 const TILE_FLOOR = 0;
-// CHANGED: 1000ms (1s) feels much more responsive than 2s
 const GAME_TICK_INTERVAL = 1000;
 const AGGRO_RADIUS = 6;
 
-export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameState, addLog, savedMonsters, onPlayerHit) => {
+// CHANGED: 3rd Argument is now 'playerStats' object
+export const useMonsterManager = (map, playerPosition, playerStats, gameState, addLog, savedMonsters, onPlayerHit) => {
     const [monsters, setMonsters] = useState(savedMonsters || []);
 
-    // Refs
     const monstersRef = useRef(monsters);
     const positionRef = useRef(playerPosition);
-    const playerLevelRef = useRef(playerLevel);
-    const floorRef = useRef(floor);
+    const playerStatsRef = useRef(playerStats); // Store full stats ref
     const hasLoggedDragonRef = useRef(false);
     const onPlayerHitRef = useRef(onPlayerHit);
 
     useEffect(() => {
         monstersRef.current = monsters;
         positionRef.current = playerPosition;
-        playerLevelRef.current = playerLevel;
-        floorRef.current = floor;
+        playerStatsRef.current = playerStats; // Update ref
         onPlayerHitRef.current = onPlayerHit;
-    }, [monsters, playerPosition, playerLevel, floor, onPlayerHit]);
+    }, [monsters, playerPosition, playerStats, onPlayerHit]);
 
     // Dragon Log
     useEffect(() => {
@@ -43,8 +40,10 @@ export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameS
             if (!map || map.length === 0) return;
 
             const playerPos = positionRef.current;
-            const currentLevel = playerLevelRef.current;
-            const currentFloor = floorRef.current || 1;
+            const currentStats = playerStatsRef.current; // Access stats here
+            const currentLevel = currentStats.level;
+            const currentFloor = currentStats.floor || 1;
+            const isGhost = currentStats.isGhostMode; // CHECK CHEAT FLAG
 
             // --- STEP 1: SPAWN LOGIC ---
             let nextMonsters = [...monstersRef.current];
@@ -100,8 +99,9 @@ export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameS
                 let dx = 0;
                 let dy = 0;
 
-                if (distToPlayer <= AGGRO_RADIUS) {
-                    // CHASE MODE: Always try to move
+                // CHEAT CHECK: If Ghost Mode, they act like player doesn't exist (Idle logic)
+                if (!isGhost && distToPlayer <= AGGRO_RADIUS) {
+                    // CHASE
                     if (m.x < playerPos.x) dx = 1;
                     else if (m.x > playerPos.x) dx = -1;
                     if (m.y < playerPos.y) dy = 1;
@@ -110,10 +110,8 @@ export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameS
                     if (Math.abs(m.x - playerPos.x) > Math.abs(m.y - playerPos.y)) dy = 0;
                     else dx = 0;
                 } else {
-                    // IDLE MODE: 60% chance to move (was 30%)
-                    // If random > 0.6 (40% chance), we stay. 
+                    // IDLE
                     if (Math.random() > 0.6) return m;
-
                     const dirs = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
                     const move = dirs[Math.floor(Math.random() * dirs.length)];
                     dx = move.dx; dy = move.dy;
@@ -122,26 +120,23 @@ export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameS
                 const newX = m.x + dx;
                 const newY = m.y + dy;
 
-                // Collision Checks
                 if (newY < 0 || newY >= map.length || newX < 0 || newX >= map[0].length) return m;
                 if (map[newY][newX] === 1) return m;
 
                 // Player Attack Check
                 if (newX === playerPos.x && newY === playerPos.y) {
-                    attacksToTrigger.push(m);
+                    // CHEAT CHECK: Even if they bump into you in Ghost Mode, they don't attack
+                    if (!isGhost) attacksToTrigger.push(m);
                     return m;
                 }
 
-                // Monster Collision Check
                 if (nextMonsters.some(other => other.id !== m.id && other.x === newX && other.y === newY)) return m;
 
                 return { ...m, x: newX, y: newY };
             });
 
-            // --- STEP 3: UPDATE STATE ---
             setMonsters(nextMonsters);
 
-            // --- STEP 4: TRIGGERS ---
             attacksToTrigger.forEach(monster => {
                 if (onPlayerHitRef.current) onPlayerHitRef.current(monster);
             });
@@ -149,7 +144,7 @@ export const useMonsterManager = (map, playerPosition, playerLevel, floor, gameS
 
         const timer = setInterval(tick, GAME_TICK_INTERVAL);
         return () => clearInterval(timer);
-    }, [gameState, map]);
+    }, [gameState, map]); // Removed stats dependencies, using Refs
 
 
     const updateMonster = useCallback((updatedMonster) => {

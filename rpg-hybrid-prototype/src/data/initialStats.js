@@ -5,15 +5,17 @@ export const initialStats = {
     maxHp: 100,
     xp: 0,
     nextLevelXp: 100,
-
-    // REPLACED POTIONS WITH SKILL DATA
-    // potions: 3, <--- Removed
-    lastHealTime: 0, // Timestamp of last use
-    healCooldown: 10000, // 10 Seconds (in ms)
-
+    lastHealTime: 0,
+    healCooldown: 10000,
     attack: 8,
     defense: 0,
     speed: 10,
+
+    // --- CHEAT FLAGS ---
+    isGodMode: false,     // Invulnerability
+    isGhostMode: false,   // No Aggro
+    isOneHitKill: false,  // Massive Damage
+
     inventory: [],
     equipment: {
         weapon: null,

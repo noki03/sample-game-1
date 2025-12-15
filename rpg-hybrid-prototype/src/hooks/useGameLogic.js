@@ -31,10 +31,9 @@ export const useGameLogic = () => {
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [loadedMonsters, setLoadedMonsters] = useState(null);
 
-    // Movement Queue for Auto-Walking
     const [moveQueue, setMoveQueue] = useState([]);
 
-    // Refs for callbacks
+    // Refs
     const playerRef = useRef(player);
     const positionRef = useRef(position);
     useEffect(() => {
@@ -42,21 +41,24 @@ export const useGameLogic = () => {
         positionRef.current = position;
     }, [player, position]);
 
-    // UI Tick for cooldowns
     const [, setTick] = useState(0);
     useEffect(() => {
         const timer = setInterval(() => setTick(t => t + 1), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // --- HOOK INTEGRATION ---
     const visuals = useVisuals();
 
     // --- HANDLE MONSTER ATTACK (REAL-TIME) ---
     const handleMonsterAttack = useCallback((monster) => {
         if (gameState === 'GAME_OVER') return;
 
-        // Calculate Damage (Defense/Dodge applied)
+        // --- CHEAT CHECK: GOD MODE ---
+        if (playerRef.current.isGodMode) {
+            visuals.showFloatText(positionRef.current.x, positionRef.current.y, "BLOCKED", "#3498db");
+            return; // Take 0 damage
+        }
+
         const hitResult = calculateHit(monster, playerRef.current);
 
         if (hitResult.isMiss) {
@@ -77,9 +79,9 @@ export const useGameLogic = () => {
         }
     }, [gameState, visuals]);
 
-    // Pass handleMonsterAttack to manager
+    // --- UPDATED ARGUMENTS: Pass full 'player' stats object ---
     const { monsters, setMonsters, removeMonster, updateMonster } = useMonsterManager(
-        map, position, player.level, player.floor, gameState, visuals.addLog, loadedMonsters,
+        map, position, player, gameState, visuals.addLog, loadedMonsters,
         handleMonsterAttack
     );
 
@@ -101,7 +103,6 @@ export const useGameLogic = () => {
     const toggleInventory = useCallback(() => setIsInventoryOpen(p => !p), []);
 
     const movePlayer = useCallback((dx, dy) => {
-        // FIX: Ensure we are in EXPLORATION mode to move/attack
         if (gameState !== 'EXPLORATION') return;
 
         const newX = position.x + dx;
@@ -116,13 +117,8 @@ export const useGameLogic = () => {
         const encounteredMonster = monsters.find(m => m.x === newX && m.y === newY);
 
         if (encounteredMonster) {
-            setMoveQueue([]); // Stop moving
-
-            // FIX: Do NOT switch to 'COMBAT' state. 
-            // Staying in 'EXPLORATION' allows Real-Time Combat to continue.
-            // setGameState('COMBAT'); <--- REMOVED
-
-            resolveCombat(encounteredMonster); // Player hits monster
+            setMoveQueue([]);
+            resolveCombat(encounteredMonster);
             return;
         }
 
@@ -134,7 +130,6 @@ export const useGameLogic = () => {
         setPosition({ x: newX, y: newY });
     }, [position, map, gameState, monsters, resolveCombat, visuals]);
 
-    // Respawn Logic
     const respawnPlayer = useCallback(() => {
         setPlayer(prev => ({ ...prev, hp: Math.floor(prev.maxHp * 0.3) }));
         const safePos = findRandomFloor(map);
@@ -146,7 +141,6 @@ export const useGameLogic = () => {
         setVisitedTiles(prev => new Set(prev).add(`${safePos.x},${safePos.y}`));
     }, [map, visuals]);
 
-    // Reset Logic
     const resetGame = useCallback(async () => {
         await clearGameState();
         const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
@@ -224,7 +218,7 @@ export const useGameLogic = () => {
                     speed: savedData.player.speed || initialStats.speed,
                     floor: savedData.player.floor || 1,
                     lastHealTime: savedData.player.lastHealTime || 0,
-                    healCooldown: savedData.player.healCooldown || 10000,
+                    healCooldown: savedData.player.healCooldown || 20000,
                     inventory: savedData.player.inventory || [],
                     equipment: savedData.player.equipment || { weapon: null, armor: null }
                 });
@@ -284,6 +278,10 @@ export const useGameLogic = () => {
         toggleFog, handleKeyDown, resetGame, respawnPlayer,
         handleTileClick, stopAutoMove,
         visitedTiles,
-        log: visuals.log, floatingTexts: visuals.floatingTexts, hitTargetId: visuals.hitTargetId
+        log: visuals.log, floatingTexts: visuals.floatingTexts, hitTargetId: visuals.hitTargetId,
+
+        // --- NEW EXPORTS FOR CHEAT MENU ---
+        setPlayer,       // Allows external updates to player state
+        addLog: visuals.addLog // Allows external logging
     };
 };
