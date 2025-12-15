@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { initialStats } from '../data/initialStats';
 import { generateDungeon, findRandomFloor } from '../utils/mapGenerator';
 import { saveGameState, loadGameState, clearGameState } from '../db';
-import { findPath } from '../utils/pathFinding'; // NEW IMPORT
+import { findPath } from '../utils/pathfinding';
+import { calculateHit } from '../utils/combatLogic';
 
 // --- CUSTOM HOOKS ---
 import { useMonsterManager } from './useMonsterManager';
@@ -30,10 +31,10 @@ export const useGameLogic = () => {
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [loadedMonsters, setLoadedMonsters] = useState(null);
 
-    // NEW: Movement Queue for Auto-Walking
+    // Movement Queue for Auto-Walking
     const [moveQueue, setMoveQueue] = useState([]);
 
-    // Helper Refs for callbacks
+    // Refs for callbacks
     const playerRef = useRef(player);
     const positionRef = useRef(position);
     useEffect(() => {
@@ -51,8 +52,35 @@ export const useGameLogic = () => {
     // --- HOOK INTEGRATION ---
     const visuals = useVisuals();
 
+    // --- HANDLE MONSTER ATTACK (REAL-TIME) ---
+    const handleMonsterAttack = useCallback((monster) => {
+        if (gameState === 'GAME_OVER') return;
+
+        // Calculate Damage (Defense/Dodge applied)
+        const hitResult = calculateHit(monster, playerRef.current);
+
+        if (hitResult.isMiss) {
+            visuals.showFloatText(positionRef.current.x, positionRef.current.y, "DODGE!", "#2ecc71");
+        } else {
+            const damage = hitResult.damage;
+            visuals.showFloatText(positionRef.current.x, positionRef.current.y, `-${damage}`, '#e74c3c');
+            visuals.addLog(`👹 ${monster.isBoss ? 'Dragon' : 'Monster'} hits you for ${damage} dmg!`);
+
+            setPlayer(prev => {
+                const newHp = prev.hp - damage;
+                if (newHp <= 0) {
+                    setGameState('GAME_OVER');
+                    return { ...prev, hp: 0 };
+                }
+                return { ...prev, hp: newHp };
+            });
+        }
+    }, [gameState, visuals]);
+
+    // Pass handleMonsterAttack to manager
     const { monsters, setMonsters, removeMonster, updateMonster } = useMonsterManager(
-        map, position, player.level, player.floor, gameState, visuals.addLog, loadedMonsters
+        map, position, player.level, player.floor, gameState, visuals.addLog, loadedMonsters,
+        handleMonsterAttack
     );
 
     const { resolveCombat } = useCombat(
@@ -68,11 +96,12 @@ export const useGameLogic = () => {
     useCheatCodes(player, setPlayer, visuals.addLog);
 
 
-    // --- LOCAL ACTIONS (Movement & Reset) ---
+    // --- LOCAL ACTIONS ---
     const toggleFog = useCallback(() => setIsFogEnabled(p => !p), []);
     const toggleInventory = useCallback(() => setIsInventoryOpen(p => !p), []);
 
     const movePlayer = useCallback((dx, dy) => {
+        // FIX: Ensure we are in EXPLORATION mode to move/attack
         if (gameState !== 'EXPLORATION') return;
 
         const newX = position.x + dx;
@@ -80,26 +109,58 @@ export const useGameLogic = () => {
 
         if (newY < 0 || newY >= map.length || newX < 0 || newX >= map[0].length) return;
         if (map[newY][newX] === 1) {
-            setMoveQueue([]); // Stop auto-walk if we hit a wall unexpectedly
+            setMoveQueue([]);
             return;
         }
 
         const encounteredMonster = monsters.find(m => m.x === newX && m.y === newY);
 
         if (encounteredMonster) {
-            setMoveQueue([]); // <--- STOP AUTO-WALK ON COMBAT
-            setGameState('COMBAT');
-            resolveCombat(encounteredMonster);
+            setMoveQueue([]); // Stop moving
+
+            // FIX: Do NOT switch to 'COMBAT' state. 
+            // Staying in 'EXPLORATION' allows Real-Time Combat to continue.
+            // setGameState('COMBAT'); <--- REMOVED
+
+            resolveCombat(encounteredMonster); // Player hits monster
             return;
         }
 
         if (map[newY][newX] === 3) {
             visuals.addLog("You see stairs going down. Press [SPACE] to descend.");
-            setMoveQueue([]); // Stop at stairs
+            setMoveQueue([]);
         }
 
         setPosition({ x: newX, y: newY });
     }, [position, map, gameState, monsters, resolveCombat, visuals]);
+
+    // Respawn Logic
+    const respawnPlayer = useCallback(() => {
+        setPlayer(prev => ({ ...prev, hp: Math.floor(prev.maxHp * 0.3) }));
+        const safePos = findRandomFloor(map);
+        setPosition(safePos);
+        setGameState('EXPLORATION');
+        setMoveQueue([]);
+        visuals.addLog("🩹 You woke up dazed and injured...");
+        visuals.showFloatText(safePos.x, safePos.y, "Revived", "#e67e22");
+        setVisitedTiles(prev => new Set(prev).add(`${safePos.x},${safePos.y}`));
+    }, [map, visuals]);
+
+    // Reset Logic
+    const resetGame = useCallback(async () => {
+        await clearGameState();
+        const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
+        const startPos = findRandomFloor(newMap);
+        setMap(newMap);
+        setPlayer(initialStats);
+        setPosition(startPos);
+        setGameState('EXPLORATION');
+        setMonsters([]);
+        setMoveQueue([]);
+        setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
+        visuals.resetVisuals();
+    }, [setMonsters, visuals]);
+
 
     // --- AUTO MOVEMENT LOOP ---
     useEffect(() => {
@@ -110,22 +171,17 @@ export const useGameLogic = () => {
 
         const timer = setTimeout(() => {
             const nextStep = moveQueue[0];
-            // Calculate Direction based on next step vs current pos
             const dx = nextStep.x - position.x;
             const dy = nextStep.y - position.y;
-
-            // Execute Move (Re-use existing logic handles collisions/monsters)
             movePlayer(dx, dy);
-
-            // Remove step
             setMoveQueue(prev => prev.slice(1));
-
         }, stepDelay);
 
         return () => clearTimeout(timer);
     }, [moveQueue, position, player.speed, movePlayer]);
 
-    // --- CLICK TO MOVE HANDLER ---
+
+    // --- CLICK TO MOVE ---
     const handleTileClick = useCallback((targetX, targetY) => {
         if (gameState !== 'EXPLORATION') return;
         if (map[targetY][targetX] === 1) {
@@ -146,26 +202,11 @@ export const useGameLogic = () => {
         if (moveQueue.length > 0) setMoveQueue([]);
     }, [moveQueue]);
 
-    const resetGame = useCallback(async () => {
-        await clearGameState();
-        const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
-        const startPos = findRandomFloor(newMap);
-        setMap(newMap);
-        setPlayer(initialStats);
-        setPosition(startPos);
-        setGameState('EXPLORATION');
-        setMonsters([]);
-        setMoveQueue([]); // Clear queue
-        setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
-        visuals.resetVisuals();
-    }, [setMonsters, visuals]);
-
 
     // --- INPUT HANDLING ---
-    // Pass stopAutoMove to manual inputs so pressing a key overrides mouse click
     const { handleKeyDown } = useInputHandler(gameState, player, isInventoryOpen, {
         resetGame,
-        movePlayer: (dx, dy) => { stopAutoMove(); movePlayer(dx, dy); }, // Wrap to interrupt
+        movePlayer: (dx, dy) => { stopAutoMove(); movePlayer(dx, dy); },
         healPlayer, toggleFog,
         toggleInventory, setIsInventoryOpen,
         descendStairs: () => descendStairs(map)
@@ -240,7 +281,8 @@ export const useGameLogic = () => {
         isLoading: false,
         player, position, map, gameState, monsters, isFogEnabled,
         isInventoryOpen, toggleInventory, equipItem, unequipItem,
-        toggleFog, handleKeyDown, resetGame, handleTileClick, // Export Click Handler
+        toggleFog, handleKeyDown, resetGame, respawnPlayer,
+        handleTileClick, stopAutoMove,
         visitedTiles,
         log: visuals.log, floatingTexts: visuals.floatingTexts, hitTargetId: visuals.hitTargetId
     };

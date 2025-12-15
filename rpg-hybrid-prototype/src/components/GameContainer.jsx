@@ -12,7 +12,7 @@ const GameContainer = () => {
     const {
         isLoading,
         player, position, map, log, gameState, monsters, isFogEnabled,
-        toggleFog, handleKeyDown, resetGame,
+        toggleFog, handleKeyDown, resetGame, respawnPlayer, // <--- Get Respawn
         isInventoryOpen, toggleInventory, equipItem, unequipItem,
         floatingTexts, hitTargetId, visitedTiles, handleTileClick
     } = useGameLogic();
@@ -43,14 +43,20 @@ const GameContainer = () => {
         <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             minHeight: '100vh',
-            backgroundColor: '#111', // Dark page background
+            backgroundColor: '#111',
             fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
             color: '#f0f0f0', position: 'relative',
             padding: '20px'
         }}>
 
             {/* --- UI OVERLAYS --- */}
-            <GameOverScreen gameState={gameState} onRestart={resetGame} />
+
+            {/* Pass both Restart and Respawn logic */}
+            <GameOverScreen
+                gameState={gameState}
+                onRestart={resetGame}
+                onRespawn={respawnPlayer}
+            />
 
             <ConfirmationModal
                 isOpen={isResetModalOpen}
@@ -74,12 +80,11 @@ const GameContainer = () => {
             </h1>
 
             {/* --- MAIN GAME CONSOLE --- */}
-            {/* This container wraps everything to look like a unified interface */}
             <div style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                backgroundColor: '#222', // Console body color
+                backgroundColor: '#222',
                 padding: '20px',
                 borderRadius: '12px',
                 boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
@@ -105,10 +110,18 @@ const GameContainer = () => {
                     {/* MAP AREA */}
                     <div style={{ position: 'relative' }}>
                         <MiniMap map={map} playerPosition={position} monsters={monsters} />
+
                         <MapRenderer
-                            map={map} playerPosition={position} monsters={monsters} isFogEnabled={isFogEnabled}
-                            floatingTexts={floatingTexts} hitTargetId={hitTargetId} visitedTiles={visitedTiles} onTileClick={handleTileClick}
+                            map={map}
+                            playerPosition={position}
+                            monsters={monsters}
+                            isFogEnabled={isFogEnabled}
+                            floatingTexts={floatingTexts}
+                            hitTargetId={hitTargetId}
+                            visitedTiles={visitedTiles}
+                            onTileClick={handleTileClick} // Pass click handler
                         />
+
                         <div style={{
                             marginTop: '10px', fontSize: '14px', color: '#666', textAlign: 'center',
                             backgroundColor: '#111', padding: '5px', borderRadius: '4px'
@@ -139,7 +152,7 @@ const btnStyle = (bg) => ({
     cursor: 'pointer',
     fontSize: '14px',
     fontWeight: 'bold',
-    boxShadow: '0 4px 0 rgba(0,0,0,0.2)', // Button 3D effect
+    boxShadow: '0 4px 0 rgba(0,0,0,0.2)',
     transition: 'transform 0.1s',
     minWidth: '100px'
 });

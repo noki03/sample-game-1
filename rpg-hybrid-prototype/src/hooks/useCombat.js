@@ -1,94 +1,57 @@
 import { useCallback } from 'react';
 import { calculateHit, processLevelUp } from '../utils/combatLogic';
-import { generateLoot } from '../data/items';
 
 export const useCombat = (playerRef, positionRef, setPlayer, setGameState, removeMonster, updateMonster, visuals) => {
 
     const resolveCombat = useCallback((monster) => {
         const player = playerRef.current;
-        const playerPos = positionRef.current;
 
-        // --- PHASE 1: PLAYER ATTACKS MONSTER ---
-        const playerHit = calculateHit(player, monster);
+        // 1. PLAYER ATTACKS MONSTER
+        const hitResult = calculateHit(player, monster);
+        const damage = hitResult.damage;
 
-        // Calculate new Monster HP (Fallback to maxHp if missing)
-        const currentMonsterHp = (monster.hp !== undefined) ? monster.hp : monster.maxHp;
-        const newMonsterHp = currentMonsterHp - playerHit.damage;
+        // Visuals
+        if (hitResult.isMiss) {
+            visuals.showFloatText(monster.x, monster.y, "MISS", "#ccc");
+            visuals.addLog(`You missed the ${monster.isBoss ? 'Dragon' : 'Monster'}.`);
+        } else {
+            const critText = hitResult.isCrit ? "CRIT! " : "";
+            visuals.showFloatText(monster.x, monster.y, `${critText}${damage}`, hitResult.isCrit ? '#f1c40f' : '#fff');
+            visuals.addLog(`You hit ${monster.isBoss ? 'Dragon' : 'Monster'} for ${damage} damage.`);
+            // Remove sfx call if you aren't using sounds yet
+            // sfx.hit(); 
+        }
 
-        const updatedMonster = { ...monster, hp: newMonsterHp };
+        // 2. APPLY DAMAGE TO MONSTER
+        const newMonsterHp = monster.hp - damage;
 
-        // Visuals (Hit Monster)
-        visuals.triggerShake(monster.id);
-        visuals.showFloatText(
-            monster.x, monster.y,
-            playerHit.isCrit ? `CRIT ${playerHit.damage}` : `${playerHit.damage}`,
-            playerHit.isCrit ? '#f1c40f' : '#fff'
-        );
-
-        // --- CHECK: DID MONSTER DIE? ---
         if (newMonsterHp <= 0) {
-            // --- VICTORY ---
-            const xpGain = monster.isBoss ? 500 : (monster.level * 20);
+            // --- MONSTER DIES ---
+            removeMonster(monster.id);
+            visuals.addLog(`💀 You killed the ${monster.isBoss ? 'Dragon' : 'Monster'}!`);
 
-            visuals.addLog(`⚔️ Defeated Lvl ${monster.level} enemy! (+${xpGain} XP)`);
-
-            // Loot
-            const droppedItem = generateLoot(monster.level, monster.isBoss);
-            if (droppedItem) {
-                visuals.addLog(`📦 Found: ${droppedItem.name}`);
-                setTimeout(() => visuals.showFloatText(playerPos.x, playerPos.y, 'ITEM GET!', '#e67e22'), 600);
-            }
-
-            // Stats & Level Up
-            let statsAfterXp = processLevelUp(player, xpGain);
-
-            if (droppedItem) {
-                const currentInventory = statsAfterXp.updatedStats.inventory || [];
-                statsAfterXp.updatedStats.inventory = [...currentInventory, droppedItem];
-            }
+            // XP Gain logic
+            const xpGain = monster.level * 10 * (monster.isBoss ? 5 : 1);
+            const statsAfterXp = processLevelUp(player, xpGain);
 
             if (statsAfterXp.leveledUp) {
-                visuals.addLog(`🎉 LEVEL UP! Level ${statsAfterXp.updatedStats.level}.`);
-                setTimeout(() => visuals.showFloatText(playerPos.x, playerPos.y, 'LEVEL UP!', '#f1c40f'), 800);
+                visuals.showFloatText(positionRef.current.x, positionRef.current.y, "LEVEL UP!", "#f1c40f");
+                visuals.addLog(`🎉 Level Up! You are now Level ${statsAfterXp.level}.`);
+            } else {
+                visuals.showFloatText(positionRef.current.x, positionRef.current.y, `+${xpGain} XP`, "#f1c40f");
             }
 
-            setPlayer(statsAfterXp.updatedStats);
-            removeMonster(monster.id);
+            setPlayer(prev => ({ ...prev, ...statsAfterXp.updatedStats }));
 
-            // Unlock state so player can move after kill
-            setGameState('EXPLORATION');
-            return;
-        }
+            if (monster.isBoss) {
+                setGameState('WON');
+            }
 
-        // --- PHASE 2: MONSTER SURVIVED -> COUNTER ATTACK ---
-        updateMonster(updatedMonster); // Save monster's new HP
-
-        const monsterHit = calculateHit(monster, player);
-        const newPlayerHp = player.hp - monsterHit.damage;
-
-        // Visuals (Hit Player)
-        if (monsterHit.damage > 0) {
-            visuals.showFloatText(playerPos.x, playerPos.y, `-${monsterHit.damage}`, '#e74c3c');
-            visuals.addLog(`👹 Enemy hits you for ${monsterHit.damage} dmg.`);
         } else {
-            visuals.showFloatText(playerPos.x, playerPos.y, `BLOCK`, '#3498db');
-            visuals.addLog(`🛡️ You blocked the enemy attack!`);
-        }
-
-        // --- CHECK: DID PLAYER DIE? ---
-        if (newPlayerHp <= 0) {
-            setPlayer(prev => ({ ...prev, hp: 0 }));
-            setGameState('GAME_OVER');
-            visuals.addLog("💀 You have been defeated!");
-        } else {
-            // Player lives
-            setPlayer(prev => ({ ...prev, hp: newPlayerHp }));
-
-            // --- CRITICAL FIX: UNLOCK STATE ---
-            // We switch back to EXPLORATION so the player can input the next command.
-            // If they press the arrow key towards the monster again, it triggers another combat round.
-            // If they press away, they flee.
-            setGameState('EXPLORATION');
+            // --- MONSTER SURVIVES ---
+            // Just update its HP. 
+            // WE REMOVED THE RETALIATION ATTACK HERE.
+            updateMonster({ ...monster, hp: newMonsterHp });
         }
 
     }, [playerRef, positionRef, setPlayer, setGameState, removeMonster, updateMonster, visuals]);
