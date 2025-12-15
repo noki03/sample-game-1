@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { processLevelUp } from '../utils/combatLogic';
 import { generateSpecificLoot } from '../utils/itemGenerator';
+import { addToInventory } from '../utils/inventoryUtils'; // <-- IMPORT HELPER
 
 const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog, onNextFloor }) => {
     if (!isOpen) return null;
 
-    // --- LOCAL STATE FOR SPAWNER ---
+    // --- LOCAL STATE ---
     const [spawnType, setSpawnType] = useState('weapon');
     const [spawnRarity, setSpawnRarity] = useState('legendary');
 
@@ -39,12 +40,36 @@ const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog, onNextFloor }) 
         addLog("🛠️ CHEAT: Forced Level Up!");
     };
 
-    // --- SPAWN ITEM ---
-    const spawnItem = () => {
-        const newItem = generateSpecificLoot(player.level, spawnType, spawnRarity);
+    // --- NEW: ADD POTIONS CHEAT ---
+    const addPotions = (size) => {
+        let potionData;
+        if (size === 'small') potionData = { name: 'Small Potion', bonus: 30, value: 20, icon: '🍷', color: '#e74c3c' };
+        if (size === 'medium') potionData = { name: 'Medium Potion', bonus: 100, value: 80, icon: '🧪', color: '#d35400' };
+        if (size === 'large') potionData = { name: 'Large Potion', bonus: 300, value: 250, icon: '⚗️', color: '#8e44ad' };
+
+        const newItem = {
+            uid: `cheat-${size}-${Date.now()}`,
+            ...potionData,
+            type: 'potion',
+            rarity: 'common',
+            quantity: 5 // Give 5 at a time
+        };
+
         setPlayer(prev => ({
             ...prev,
-            inventory: [...(prev.inventory || []), newItem]
+            inventory: addToInventory(prev.inventory, newItem)
+        }));
+        addLog(`🛠️ Added 5x ${potionData.name}`);
+    };
+
+    // --- SPAWN RANDOM ITEM ---
+    const spawnItem = () => {
+        const newItem = generateSpecificLoot(player.level, spawnType, spawnRarity);
+
+        setPlayer(prev => ({
+            ...prev,
+            // UPDATED: Use helper to ensure stacking works for spawned items too
+            inventory: addToInventory(prev.inventory, newItem)
         }));
         addLog(`🛠️ SPAWNED: ${newItem.name}`);
     };
@@ -74,49 +99,46 @@ const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog, onNextFloor }) 
                     <CheatToggle label="👟 Super Speed" isActive={player.speed > 20} onClick={toggleSpeed} />
                 </div>
 
-                {/* ACTIONS GRID */}
+                {/* BASIC ACTIONS */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px', borderBottom: '1px solid #444', paddingBottom: '20px' }}>
                     <button onClick={fullHeal} style={actionBtnStyle}>💚 Full Heal</button>
                     <button onClick={levelUp} style={actionBtnStyle}>🆙 Level Up</button>
-
-                    {/* NEW BUTTON */}
-                    <button
-                        onClick={onNextFloor}
-                        style={{ ...actionBtnStyle, gridColumn: '1 / -1', backgroundColor: '#e67e22' }}
-                    >
+                    <button onClick={onNextFloor} style={{ ...actionBtnStyle, gridColumn: '1 / -1', backgroundColor: '#e67e22' }}>
                         ⏩ Skip to Next Floor
+                    </button>
+                </div>
+
+                {/* POTION SHORTCUTS */}
+                <h3 style={{ fontSize: '14px', margin: '0 0 10px 0', color: '#aaa' }}>🧪 Quick Potions (+5)</h3>
+                <div style={{ display: 'flex', gap: '5px', marginBottom: '20px', borderBottom: '1px solid #444', paddingBottom: '20px' }}>
+                    <button onClick={() => addPotions('small')} style={{ ...actionBtnStyle, flex: 1, backgroundColor: '#c0392b' }}>
+                        🍷 Small
+                    </button>
+                    <button onClick={() => addPotions('medium')} style={{ ...actionBtnStyle, flex: 1, backgroundColor: '#d35400' }}>
+                        🧪 Med
+                    </button>
+                    <button onClick={() => addPotions('large')} style={{ ...actionBtnStyle, flex: 1, backgroundColor: '#8e44ad' }}>
+                        ⚗️ Large
                     </button>
                 </div>
 
                 {/* ITEM SPAWNER */}
                 <h3 style={{ fontSize: '14px', margin: '0 0 10px 0', color: '#aaa' }}>🎁 Item Spawner</h3>
                 <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
-                    <select
-                        value={spawnType}
-                        onChange={(e) => setSpawnType(e.target.value)}
-                        style={selectStyle}
-                    >
+                    <select value={spawnType} onChange={(e) => setSpawnType(e.target.value)} style={selectStyle}>
                         <option value="weapon">Weapon</option>
                         <option value="armor">Armor</option>
-                        <option value="potion">Potion</option>
+                        {/* Removed Potion here since we have buttons, but keeping it is fine too */}
+                        <option value="potion">Potion (Single)</option>
                     </select>
 
-                    <select
-                        value={spawnRarity}
-                        onChange={(e) => setSpawnRarity(e.target.value)}
-                        style={selectStyle}
-                        disabled={spawnType === 'potion'}
-                    >
-                        <option value="broken">Broken</option>
-                        <option value="rusty">Rusty</option>
+                    <select value={spawnRarity} onChange={(e) => setSpawnRarity(e.target.value)} style={selectStyle} disabled={spawnType === 'potion'}>
                         <option value="common">Common</option>
-                        <option value="sharpened">Sharpened</option>
-                        <option value="hardened">Hardened</option>
-                        <option value="magical">Magical</option>
                         <option value="legendary">Legendary</option>
+                        <option value="mythic">Mythic</option>
                     </select>
                 </div>
-                <button onClick={spawnItem} style={{ ...actionBtnStyle, width: '100%', backgroundColor: '#8e44ad' }}>
+                <button onClick={spawnItem} style={{ ...actionBtnStyle, width: '100%', backgroundColor: '#2980b9' }}>
                     ✨ Spawn Item
                 </button>
             </div>
@@ -124,8 +146,7 @@ const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog, onNextFloor }) 
     );
 };
 
-// --- SUBCOMPONENTS & STYLES ---
-
+// --- STYLES ---
 const CheatToggle = ({ label, isActive, onClick }) => (
     <div
         onClick={onClick}

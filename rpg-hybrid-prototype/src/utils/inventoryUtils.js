@@ -1,7 +1,8 @@
 // Helper to add items to inventory with stacking logic
 export const addToInventory = (currentInventory, newItem) => {
-    // Only Stack Potions
+    // 1. Only Stack Potions
     if (newItem.type === 'potion') {
+        // Check if we already have a potion with this NAME
         const existingIndex = currentInventory.findIndex(item => item.name === newItem.name);
 
         if (existingIndex !== -1) {
@@ -11,12 +12,13 @@ export const addToInventory = (currentInventory, newItem) => {
 
             updatedInventory[existingIndex] = {
                 ...existingItem,
-                quantity: (existingItem.quantity || 1) + 1
+                // UPDATED: Add the quantity of the new item (default to 1)
+                quantity: (existingItem.quantity || 1) + (newItem.quantity || 1)
             };
             return updatedInventory;
         }
     }
 
-    // Otherwise just add it (Weapons/Armor don't stack)
+    // 2. Weapons/Armor do not stack, or if Potion is new
     return [...currentInventory, newItem];
 };

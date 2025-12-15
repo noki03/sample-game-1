@@ -23,8 +23,8 @@ const BOSS_ARTIFACTS = [
 // --- POTION DEFINITIONS ---
 const POTION_TYPES = [
     { name: 'Small Potion', bonus: 30, value: 20, icon: '🍷', color: '#e74c3c', minLevel: 0 },
-    { name: 'Medium Potion', bonus: 100, value: 80, icon: '🧪', color: '#d35400', minLevel: 10 },
-    { name: 'Large Potion', bonus: 300, value: 250, icon: '⚗️', color: '#8e44ad', minLevel: 25 }
+    { name: 'Medium Potion', bonus: 80, value: 80, icon: '🧪', color: '#d35400', minLevel: 10 },
+    { name: 'Large Potion', bonus: 150, value: 250, icon: '⚗️', color: '#8e44ad', minLevel: 25 }
 ];
 
 const BASE_TYPES = {
