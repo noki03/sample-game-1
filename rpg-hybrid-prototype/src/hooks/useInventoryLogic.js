@@ -1,96 +1,65 @@
 import { useCallback } from 'react';
 
-// Requires 'player' object to validate items before setting state
 export const useInventoryLogic = (player, setPlayer, visuals) => {
 
-    // --- EQUIP ITEM ---
     const equipItem = useCallback((item) => {
+        if (!item) return;
         setPlayer(prev => {
-            const currentEquipment = prev.equipment || { weapon: null, armor: null };
-            const currentInventory = prev.inventory || [];
-            const type = item.type;
-            const oldItem = currentEquipment[type];
+            // 1. Remove item from inventory
+            const newInventory = prev.inventory.filter(i => i.uid !== item.uid);
 
-            // Remove new item from inventory, add old item back
-            const newInventory = currentInventory.filter(i => i.uid !== item.uid);
+            // 2. If slot occupied, move old item to inventory
+            const oldItem = prev.equipment[item.type];
             if (oldItem) newInventory.push(oldItem);
 
-            // Recalculate Stats
-            let newAttack = prev.attack;
-            let newDefense = prev.defense;
-
-            const getItemBonus = (itm) => itm ? itm.bonus : 0;
-
-            if (type === 'weapon') {
-                newAttack = (newAttack - getItemBonus(oldItem)) + item.bonus;
-            } else if (type === 'armor') {
-                newDefense = (newDefense - getItemBonus(oldItem)) + item.bonus;
-            }
-
+            // 3. Equip new item
             return {
                 ...prev,
-                inventory: newInventory,
-                equipment: { ...currentEquipment, [type]: item },
-                attack: newAttack,
-                defense: newDefense
+                equipment: { ...prev.equipment, [item.type]: item },
+                inventory: newInventory
             };
         });
-    }, [setPlayer]);
+        visuals.addLog(`Equipped ${item.name}`);
+    }, [setPlayer, visuals]);
 
-    // --- UNEQUIP ITEM ---
-    const unequipItem = useCallback((type) => {
+    const unequipItem = useCallback((slotType) => {
         setPlayer(prev => {
-            const currentEquipment = prev.equipment || { weapon: null, armor: null };
-            const itemToUnequip = currentEquipment[type];
-            if (!itemToUnequip) return prev;
-
-            const newInventory = [...(prev.inventory || []), itemToUnequip];
-            let newAttack = prev.attack;
-            let newDefense = prev.defense;
-
-            if (type === 'weapon') newAttack -= itemToUnequip.bonus;
-            else if (type === 'armor') newDefense -= itemToUnequip.bonus;
-
+            const item = prev.equipment[slotType];
+            if (!item) return prev;
             return {
                 ...prev,
-                inventory: newInventory,
-                equipment: { ...currentEquipment, [type]: null },
-                attack: newAttack,
-                defense: newDefense
+                equipment: { ...prev.equipment, [slotType]: null },
+                inventory: [...prev.inventory, item]
             };
         });
     }, [setPlayer]);
 
-    // --- CONSUME ITEM (POTIONS) ---
+    // --- CONSUME (Reduces Stack) ---
     const consumeItem = useCallback((item) => {
-        // 1. Validation OUTSIDE the setter
         if (item.type !== 'potion') return;
 
-        // Check if item actually exists in the provided player state (prevents spam/race conditions)
-        const exists = player.inventory.find(i => i.uid === item.uid);
-        if (!exists) return;
+        const currentHp = player.hp;
+        const maxHp = player.maxHp;
 
-        const missingHp = player.maxHp - player.hp;
-        if (missingHp <= 0) {
-            if (visuals) visuals.addLog("Health is already full!");
+        if (currentHp >= maxHp) {
+            visuals.addLog("You are already at full health.");
             return;
         }
 
-        // 2. Perform Side Effects (Logging) ONCE
-        const healAmount = Math.min(missingHp, item.bonus);
+        const healAmount = item.bonus;
+        const newHp = Math.min(maxHp, currentHp + healAmount);
+        const actualHeal = newHp - currentHp;
 
-        if (visuals) {
-            visuals.addLog(`🍷 Used ${item.name} (+${healAmount} HP)`);
-            visuals.showFloatText(0, 0, `+${healAmount}`, '#e74c3c');
-        }
+        visuals.addLog(`🍷 Used ${item.name}. Healed ${actualHeal} HP.`);
 
-        // 3. Update State
         setPlayer(prev => {
-            // Double-check existence in 'prev' to be safe
-            if (!prev.inventory.find(i => i.uid === item.uid)) return prev;
-
-            const newHp = Math.min(prev.maxHp, prev.hp + healAmount);
-            const newInventory = prev.inventory.filter(i => i.uid !== item.uid);
+            // Find item and decrement quantity
+            const newInventory = prev.inventory.map(invItem => {
+                if (invItem.uid === item.uid) {
+                    return { ...invItem, quantity: (invItem.quantity || 1) - 1 };
+                }
+                return invItem;
+            }).filter(invItem => invItem.quantity > 0); // Remove if 0
 
             return {
                 ...prev,
@@ -100,31 +69,28 @@ export const useInventoryLogic = (player, setPlayer, visuals) => {
         });
     }, [player, setPlayer, visuals]);
 
-    // --- NEW: SELL ITEM ---
+    // --- SELL (Reduces Stack) ---
     const sellItem = useCallback((item) => {
-        // 1. Validation
-        const exists = player.inventory.find(i => i.uid === item.uid);
-        if (!exists) return;
+        const sellValue = item.value || 0;
 
-        const sellValue = item.value || 10; // Default fallback
-
-        // 2. Log ONCE
-        if (visuals) {
-            visuals.addLog(`💰 Sold ${item.name} for ${sellValue} Gold`);
-            visuals.showFloatText(0, 0, `+${sellValue} G`, '#f1c40f');
-        }
-
-        // 3. Update State
         setPlayer(prev => {
-            if (!prev.inventory.find(i => i.uid === item.uid)) return prev;
+            const newInventory = prev.inventory.map(invItem => {
+                if (invItem.uid === item.uid) {
+                    return { ...invItem, quantity: (invItem.quantity || 1) - 1 };
+                }
+                return invItem;
+            }).filter(invItem => invItem.quantity > 0);
 
             return {
                 ...prev,
                 gold: (prev.gold || 0) + sellValue,
-                inventory: prev.inventory.filter(i => i.uid !== item.uid)
+                inventory: newInventory
             };
         });
-    }, [player, setPlayer, visuals]);
+
+        visuals.addLog(`💰 Sold 1x ${item.name} for ${sellValue} G`);
+
+    }, [setPlayer, visuals]);
 
     return { equipItem, unequipItem, consumeItem, sellItem };
 };
