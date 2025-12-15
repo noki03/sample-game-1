@@ -1,54 +1,90 @@
 import React from 'react';
 
 const EquipmentSlot = ({ title, item, placeholderIcon, type, onUnequip }) => {
+
+    // Check for Mythic status
+    const isMythic = item?.rarity === 'mythic';
+
+    // Container Style (Matches InventoryItem)
+    const containerStyle = {
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '8px',
+        width: '120px', minHeight: '160px',
+
+        // Background: Mythics get the gradient
+        background: isMythic
+            ? 'linear-gradient(135deg, #34495e 0%, #4a1c1c 100%)'
+            : '#222', // Slightly darker than inventory items to denote a "Slot"
+
+        border: item ? `1px solid ${item.color}` : '1px solid #444',
+        borderRadius: '8px',
+        boxShadow: isMythic
+            ? `0 0 10px ${item.color}, inset 0 0 10px ${item.color}33`
+            : 'inset 0 0 10px rgba(0,0,0,0.5)',
+
+        position: 'relative', overflow: 'hidden',
+        transition: 'all 0.2s'
+    };
+
+    // Stat Info Logic
+    let statLabel = type === 'weapon' ? 'ATK' : 'DEF';
+    let statIcon = type === 'weapon' ? '⚔️' : '🛡️';
+    let statColor = type === 'weapon' ? '#e67e22' : '#3498db';
+
     return (
-        <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            border: item ? `1px solid ${item.color}` : '1px solid #555',
-            padding: '10px', borderRadius: '8px',
-            width: '120px', minHeight: '160px',
-            backgroundColor: '#222',
-            justifyContent: 'flex-start',
-            boxShadow: item ? `inset 0 0 15px ${item.color}20` : 'none'
-        }}>
-            <span style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>{title}</span>
+        <div style={containerStyle}>
+            {/* Slot Label (Weapon/Armor) - Only show if empty or unobtrusive */}
+            {!item && <span style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>{title}</span>}
 
             {item ? (
-                <button
-                    onClick={() => onUnequip(type)}
-                    title="Click to Unequip"
-                    style={{
-                        background: 'none', border: 'none', color: 'inherit',
-                        cursor: 'pointer', width: '100%',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        justifyContent: 'center', flex: 1
-                    }}
-                >
-                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>{item.icon}</div>
-
+                <>
+                    {/* Rarity Indicator Stripe */}
                     <div style={{
-                        fontSize: '14px', fontWeight: 'bold', marginBottom: '5px',
-                        lineHeight: '1.2', maxWidth: '100%', color: item.color
-                    }}>
-                        {item.name}
+                        position: 'absolute', top: 0, left: 0, right: 0, height: '4px',
+                        backgroundColor: item.color
+                    }} />
+
+                    {/* CONTENT: Name & Icon */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '5px' }}>
+                        <div style={{
+                            fontSize: '12px', fontWeight: 'bold', color: item.color,
+                            textAlign: 'center', lineHeight: '1.2', marginBottom: '5px',
+                            textShadow: isMythic ? `0 0 5px ${item.color}` : 'none'
+                        }}>
+                            {item.name}
+                        </div>
+                        <div style={{ fontSize: '32px', marginBottom: '5px' }}>{item.icon}</div>
                     </div>
 
-                    <div style={{ fontSize: '12px', color: '#aaa', marginBottom: '5px' }}>
-                        +{item.bonus} {item.type === 'weapon' ? 'ATK' : 'DEF'}
+                    {/* INFO: Compact Stats */}
+                    <div style={{
+                        fontSize: '11px', display: 'flex', justifyContent: 'center', gap: '5px',
+                        width: '100%', backgroundColor: 'rgba(0,0,0,0.3)', padding: '4px 0', borderRadius: '4px',
+                        marginBottom: '8px'
+                    }}>
+                        <span style={{ color: statColor, fontWeight: 'bold' }}>
+                            {statIcon} +{item.bonus} {statLabel}
+                        </span>
                     </div>
 
-                    <div style={{
-                        fontSize: '10px', color: '#e74c3c', border: '1px solid #e74c3c',
-                        borderRadius: '4px', padding: '2px 6px', marginTop: 'auto'
-                    }}>
+                    {/* ACTION: Unequip Button */}
+                    <button
+                        onClick={() => onUnequip(type)}
+                        style={{
+                            width: '100%', padding: '6px 0', fontSize: '11px', fontWeight: 'bold',
+                            backgroundColor: '#c0392b', color: 'white', border: 'none', borderRadius: '4px',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                    >
                         Unequip
-                    </div>
-                </button>
+                    </button>
+                </>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, opacity: 0.4 }}>
-                    <div style={{ fontSize: '32px', marginBottom: '5px' }}>{placeholderIcon}</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '5px' }}>Empty</div>
-                    <div style={{ fontSize: '12px' }}>-</div>
+                // EMPTY STATE
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, opacity: 0.3 }}>
+                    <div style={{ fontSize: '36px', marginBottom: '5px' }}>{placeholderIcon}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>Empty</div>
                 </div>
             )}
         </div>

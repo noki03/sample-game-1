@@ -1,14 +1,23 @@
 // Configuration for Rarity Tiers
-// weight: Higher number = more common.
-// mult: Stat multiplier.
 const RARITY_TIERS = [
-    { name: 'Broken', color: '#7f8c8d', mult: 0.5, weight: 100 }, // Very Common, Weak
+    { name: 'Broken', color: '#7f8c8d', mult: 0.5, weight: 100 },
     { name: 'Rusty', color: '#95a5a6', mult: 0.8, weight: 80 },
-    { name: 'Common', color: '#ecf0f1', mult: 1.0, weight: 60 },  // Standard
-    { name: 'Sharpened', color: '#2ecc71', mult: 1.2, weight: 40 },
-    { name: 'Hardened', color: '#3498db', mult: 1.5, weight: 25 },
-    { name: 'Magical', color: '#9b59b6', mult: 2.0, weight: 10 },  // Rare, Strong
-    { name: 'Legendary', color: '#f1c40f', mult: 3.0, weight: 2 }    // Ultra Rare, OP
+    { name: 'Common', color: '#ecf0f1', mult: 1.0, weight: 60 },
+    { name: 'Sharpened', color: '#2ecc71', mult: 1.2, weight: 40 }, // Green
+    { name: 'Hardened', color: '#3498db', mult: 1.5, weight: 25 }, // Blue
+    { name: 'Magical', color: '#9b59b6', mult: 2.5, weight: 10 }, // Purple (Buffed slightly)
+    { name: 'Legendary', color: '#f1c40f', mult: 4.0, weight: 2 }   // Gold (Buffed)
+];
+
+// --- BOSS ARTIFACTS (MYTHIC) ---
+// Now using RED/CRIMSON to distinguish from Magical Purple
+const BOSS_ARTIFACTS = [
+    { name: "Dragon Slayer", type: "weapon", icon: "🗡️🔥", mult: 6.0 }, // MASSIVE DMG
+    { name: "Void Cleaver", type: "weapon", icon: "🌌", mult: 6.5 },
+    { name: "Mjolnir's Echo", type: "weapon", icon: "🔨⚡", mult: 6.2 },
+    { name: "Aegis Shield", type: "armor", icon: "🛡️✨", mult: 5.5 },
+    { name: "Dragon Scale", type: "armor", icon: "🐲", mult: 5.8 },
+    { name: "God King's Plate", type: "armor", icon: "👑", mult: 6.0 }
 ];
 
 const BASE_TYPES = {
@@ -28,117 +37,92 @@ const BASE_TYPES = {
 
 // Helper: Pick a rarity based on weights and player level
 const pickRarity = (level) => {
-    // 1. Adjust weights based on level
-    // At higher levels, bad items become less likely, good items slightly more likely.
-    const levelFactor = Math.min(level, 50); // Cap influence at level 50
+    const levelFactor = Math.min(level, 50);
 
-    // Create a temporary weight pool
     const pool = RARITY_TIERS.map(tier => {
         let w = tier.weight;
-
-        // Reduce weight of garbage tiers as you level up
         if (tier.mult < 1.0) w = Math.max(0, w - (levelFactor * 2));
-
-        // Increase weight of high tiers slightly
         if (tier.mult > 1.5) w = w + (levelFactor * 0.5);
-
         return { ...tier, currentWeight: w };
     });
 
-    // 2. Calculate Total Weight
     const totalWeight = pool.reduce((sum, tier) => sum + tier.currentWeight, 0);
-
-    // 3. Roll
     let random = Math.random() * totalWeight;
 
-    // 4. Find selection
     for (const tier of pool) {
         if (random < tier.currentWeight) return tier;
         random -= tier.currentWeight;
     }
-
-    return pool[0]; // Fallback
+    return pool[0];
 };
 
+// --- STANDARD LOOT ---
 export const generateLoot = (level) => {
-    // --- POTIONS (25% Chance) ---
     if (Math.random() < 0.25) {
         return {
             uid: Date.now() + Math.random(),
-            name: 'Health Potion',
-            type: 'potion',
-            bonus: 25 + Math.floor(level * 5), // Heals 25 + 5 per level
-            icon: '🍷',
-            color: '#e74c3c', // Red
-            rarity: 'common',
-            value: 15 + level // Cheap
+            name: 'Health Potion', type: 'potion', bonus: 25 + Math.floor(level * 5),
+            icon: '🍷', color: '#e74c3c', rarity: 'common', value: 15 + level
         };
     }
 
-    // --- EQUIPMENT GENERATION ---
-
-    // 1. Pick Rarity (Weighted)
     const rarity = pickRarity(level);
-
-    // 2. Pick Type
     const type = Math.random() > 0.5 ? 'weapon' : 'armor';
     const baseItem = BASE_TYPES[type][Math.floor(Math.random() * BASE_TYPES[type].length)];
 
-    // 3. Calculate Stats
-    // Formula: (ItemBase + Level) * RarityMultiplier
     const basePower = baseItem.baseStat + level;
-    const variance = (Math.random() * 0.2) + 0.9; // 0.9 to 1.1 variance
+    const variance = (Math.random() * 0.2) + 0.9;
 
     let finalBonus = Math.floor(basePower * rarity.mult * variance);
     if (finalBonus < 1) finalBonus = 1;
 
-    // 4. Calculate Value (Gold)
-    // Formula: StatBonus * 10 * PriceMultiplier
-    // Price Multiplier scales with Rarity (Legendary items are worth 4x base price)
     const priceMult = 1 + (RARITY_TIERS.indexOf(rarity) * 0.5);
     const value = Math.floor(finalBonus * 10 * priceMult);
 
     return {
         uid: Date.now() + Math.random(),
         name: `${rarity.name} ${baseItem.name}`,
-        type: type,
-        bonus: finalBonus,
-        icon: baseItem.icon,
-        color: rarity.color,
-        rarity: rarity.name.toLowerCase(),
-        value: value // <--- ADDED VALUE
+        type: type, bonus: finalBonus, icon: baseItem.icon,
+        color: rarity.color, rarity: rarity.name.toLowerCase(), value: value
     };
 };
 
-// --- NEW FUNCTION: Force specific generation (For Cheats) ---
+// --- BOSS LOOT (MYTHIC) ---
+export const generateBossLoot = (level) => {
+    const artifact = BOSS_ARTIFACTS[Math.floor(Math.random() * BOSS_ARTIFACTS.length)];
+
+    const basePower = 15 + level; // Higher base than normal items
+    const finalBonus = Math.floor(basePower * artifact.mult);
+    const value = finalBonus * 50; // Extremely expensive
+
+    return {
+        uid: Date.now() + Math.random(),
+        name: artifact.name,
+        type: artifact.type,
+        bonus: finalBonus,
+        icon: artifact.icon,
+        color: '#ff3333', // NEW: Crimson Red / Neon Red
+        rarity: 'mythic',
+        value: value
+    };
+};
+
+// --- CHEAT LOOT ---
 export const generateSpecificLoot = (level, type, rarityName) => {
-    // 1. Handle Potion
     if (type === 'potion') {
-        return {
-            uid: Date.now() + Math.random(),
-            name: 'Health Potion',
-            type: 'potion',
-            bonus: 25 + (level * 5),
-            icon: '🍷',
-            color: '#e74c3c',
-            rarity: 'common',
-            value: 15
-        };
+        return { uid: Date.now() + Math.random(), name: 'Health Potion', type: 'potion', bonus: 25 + (level * 5), icon: '🍷', color: '#e74c3c', rarity: 'common', value: 15 };
     }
 
-    // 2. Find Rarity Info
-    const rarity = RARITY_TIERS.find(r => r.name.toLowerCase() === rarityName.toLowerCase())
-        || RARITY_TIERS[2];
+    // Check if user asked for "mythic" specifically
+    if (rarityName.toLowerCase() === 'mythic') {
+        return generateBossLoot(level);
+    }
 
-    // 3. Pick Random Base
+    const rarity = RARITY_TIERS.find(r => r.name.toLowerCase() === rarityName.toLowerCase()) || RARITY_TIERS[2];
     const baseList = BASE_TYPES[type] || BASE_TYPES['weapon'];
     const baseItem = baseList[Math.floor(Math.random() * baseList.length)];
-
-    // 4. Calculate Stats
     const basePower = baseItem.baseStat + level;
     const finalBonus = Math.floor(basePower * rarity.mult);
-
-    // 5. Calculate Value
     const rarityIndex = RARITY_TIERS.indexOf(rarity);
     const priceMult = 1 + (rarityIndex * 0.5);
     const value = Math.floor(finalBonus * 10 * priceMult);
@@ -146,11 +130,6 @@ export const generateSpecificLoot = (level, type, rarityName) => {
     return {
         uid: Date.now() + Math.random(),
         name: `${rarity.name} ${baseItem.name}`,
-        type: type,
-        bonus: finalBonus,
-        icon: baseItem.icon,
-        color: rarity.color,
-        rarity: rarity.name.toLowerCase(),
-        value: value // <--- ADDED VALUE
+        type: type, bonus: finalBonus, icon: baseItem.icon, color: rarity.color, rarity: rarity.name.toLowerCase(), value: value
     };
 };

@@ -2,13 +2,20 @@ import React, { useState } from 'react';
 import InventoryItem from './inventory/InventoryItem';
 import EquipmentSlot from './inventory/EquipmentSlot';
 
-// Sorting Configuration
+// --- FIXED SORTING CONFIGURATION ---
+// Added 'mythic' at the top (7)
 const RARITY_WEIGHTS = {
-    legendary: 6, magical: 5, hardened: 4, sharpened: 3, common: 2, rusty: 1, broken: 0
+    mythic: 7,    // <--- NEW! Highest Priority
+    legendary: 6,
+    magical: 5,
+    hardened: 4,
+    sharpened: 3,
+    common: 2,
+    rusty: 1,
+    broken: 0
 };
 
 const InventoryScreen = ({ isOpen, player, onEquip, onUnequip, onConsume, onSell, onClose }) => {
-    // --- STATE: Sorting Method ---
     const [sortBy, setSortBy] = useState('recent');
 
     if (!isOpen) return null;
@@ -22,18 +29,29 @@ const InventoryScreen = ({ isOpen, player, onEquip, onUnequip, onConsume, onSell
         switch (sortBy) {
             case 'value': // High Value -> Low
                 return items.sort((a, b) => (b.value || 0) - (a.value || 0));
-            case 'rarity': // High Rarity -> Low
-                return items.sort((a, b) => (RARITY_WEIGHTS[b.rarity] || 0) - (RARITY_WEIGHTS[a.rarity] || 0));
+
+            case 'rarity': // Mythic -> Broken
+                return items.sort((a, b) => {
+                    // Safe access with fallback to 0
+                    const weightA = RARITY_WEIGHTS[a.rarity?.toLowerCase()] || 0;
+                    const weightB = RARITY_WEIGHTS[b.rarity?.toLowerCase()] || 0;
+                    return weightB - weightA;
+                });
+
             case 'type': // Weapon -> Armor -> Potion
                 return items.sort((a, b) => a.type.localeCompare(b.type));
+
             case 'power': // High Stats -> Low
                 return items.sort((a, b) => b.bonus - a.bonus);
-            default: // Recent (no change)
+
+            default: // Recent (Newest at bottom)
                 return items;
         }
     };
 
     const sortedInventory = getSortedInventory();
+
+    // ... (Rest of the Render logic remains exactly the same) ...
 
     return (
         <div style={overlayStyle}>
@@ -131,7 +149,7 @@ const dropdownStyle = {
 
 const gridStyle = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', // THE GRID MAGIC
+    gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
     gap: '12px',
     overflowY: 'auto',
     paddingRight: '5px',
