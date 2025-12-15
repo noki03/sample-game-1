@@ -1,6 +1,7 @@
 import React from 'react';
 
-const InventoryScreen = ({ isOpen, player, onEquip, onUnequip, onConsume, onClose }) => {
+// NEW PROP: onSell
+const InventoryScreen = ({ isOpen, player, onEquip, onUnequip, onConsume, onSell, onClose }) => {
     if (!isOpen) return null;
 
     const inventory = player?.inventory || [];
@@ -10,12 +11,12 @@ const InventoryScreen = ({ isOpen, player, onEquip, onUnequip, onConsume, onClos
     const renderSlot = (title, item, placeholderIcon, type) => (
         <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            border: item ? `1px solid ${item.color}` : '1px solid #555', // Colorize border if equipped
+            border: item ? `1px solid ${item.color}` : '1px solid #555',
             padding: '10px', borderRadius: '8px',
             width: '120px', minHeight: '160px',
             backgroundColor: '#222',
             justifyContent: 'flex-start',
-            boxShadow: item ? `inset 0 0 15px ${item.color}20` : 'none' // Subtle glow
+            boxShadow: item ? `inset 0 0 15px ${item.color}20` : 'none'
         }}>
             <span style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>{title}</span>
 
@@ -35,7 +36,7 @@ const InventoryScreen = ({ isOpen, player, onEquip, onUnequip, onConsume, onClos
                     <div style={{
                         fontSize: '14px', fontWeight: 'bold', marginBottom: '5px',
                         lineHeight: '1.2', maxWidth: '100%',
-                        color: item.color // Colorize Name
+                        color: item.color
                     }}>
                         {item.name}
                     </div>
@@ -100,22 +101,18 @@ const InventoryScreen = ({ isOpen, player, onEquip, onUnequip, onConsume, onClos
                         const isPotion = item.type === 'potion';
 
                         return (
-                            <button
+                            <div
                                 key={item.uid}
-                                // Switch Logic: Drink if potion, Equip if gear
-                                onClick={() => isPotion ? onConsume(item) : onEquip(item)}
                                 style={{
                                     display: 'flex', alignItems: 'center', padding: '10px',
                                     backgroundColor: '#34495e',
-                                    border: `1px solid ${item.color || '#2c3e50'}`, // Rarity Border
-                                    borderRadius: '6px', cursor: 'pointer', color: 'white', textAlign: 'left',
-                                    boxShadow: `inset 4px 0 0 ${item.color || 'transparent'}`, // Rarity Strip
-                                    transition: 'transform 0.1s'
+                                    border: `1px solid ${item.color || '#2c3e50'}`,
+                                    borderRadius: '6px', color: 'white', textAlign: 'left',
+                                    boxShadow: `inset 4px 0 0 ${item.color || 'transparent'}`,
                                 }}
-                                onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
-                                onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 <span style={{ fontSize: '24px', marginRight: '10px' }}>{item.icon}</span>
+
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '13px', fontWeight: 'bold', color: item.color }}>
                                         {item.name}
@@ -126,25 +123,47 @@ const InventoryScreen = ({ isOpen, player, onEquip, onUnequip, onConsume, onClos
                                             : `+${item.bonus} ${item.type === 'weapon' ? 'ATK' : 'DEF'}`
                                         }
                                     </div>
+                                    {/* VALUE DISPLAY */}
+                                    <div style={{ fontSize: '10px', color: '#f1c40f', marginTop: '2px' }}>
+                                        Value: {item.value || 0} G
+                                    </div>
                                 </div>
-                                <div style={{
-                                    fontSize: '10px',
-                                    backgroundColor: isPotion ? '#27ae60' : '#2980b9',
-                                    padding: '3px 6px', borderRadius: '4px', fontWeight: 'bold'
-                                }}>
-                                    {isPotion ? 'Drink' : 'Equip'}
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                    {/* EQUIP/DRINK */}
+                                    <button
+                                        onClick={() => isPotion ? onConsume(item) : onEquip(item)}
+                                        style={actionBtnStyle(isPotion ? '#27ae60' : '#2980b9')}
+                                    >
+                                        {isPotion ? 'Drink' : 'Equip'}
+                                    </button>
+
+                                    {/* SELL BUTTON */}
+                                    <button
+                                        onClick={() => onSell(item)}
+                                        style={actionBtnStyle('#c0392b')}
+                                        title={`Sell for ${item.value} Gold`}
+                                    >
+                                        Sell
+                                    </button>
                                 </div>
-                            </button>
+                            </div>
                         );
                     })}
                 </div>
 
                 <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '12px', color: '#95a5a6' }}>
-                    Click an item to use/equip.
+                    Click an item to use or sell.
                 </div>
             </div>
         </div>
     );
 };
+
+const actionBtnStyle = (bg) => ({
+    backgroundColor: bg, color: 'white', border: 'none',
+    padding: '4px 8px', borderRadius: '4px', cursor: 'pointer',
+    fontWeight: 'bold', fontSize: '11px', minWidth: '50px'
+});
 
 export default InventoryScreen;

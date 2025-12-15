@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const StatsPanel = ({ stats }) => {
-    // Force local update every second to animate cooldown
+    // Force local update every 500ms to animate cooldown text
     const [, setTick] = useState(0);
     useEffect(() => {
         const timer = setInterval(() => setTick(t => t + 1), 500);
@@ -31,6 +31,17 @@ const StatsPanel = ({ stats }) => {
                 HERO STATS
             </h3>
 
+            {/* --- NEW: GOLD DISPLAY --- */}
+            <div style={{
+                marginBottom: '15px', padding: '8px', backgroundColor: '#f1c40f15',
+                borderRadius: '4px', border: '1px solid #f1c40f', color: '#f1c40f',
+                fontWeight: 'bold', textAlign: 'center', fontSize: '16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+            }}>
+                <span>🥮</span>
+                <span>{stats.gold || 0} Gold</span>
+            </div>
+
             <div style={{ marginBottom: '10px', fontSize: '14px', display: 'flex', justifyContent: 'space-between' }}>
                 <span>Level: {stats.level}</span>
                 <span style={{ color: '#f39c12' }}>Floor: {stats.floor || 1}</span>
@@ -58,7 +69,7 @@ const StatsPanel = ({ stats }) => {
                 <div style={{ color: '#3498db' }}>🛡️ DEF: {stats.defense}</div>
                 <div style={{ color: '#2ecc71' }}>👟 SPD: {stats.speed || 10}</div>
 
-                {/* NEW HEAL SKILL UI */}
+                {/* HEAL SKILL UI */}
                 <div style={{
                     color: isReady ? '#2ecc71' : '#95a5a6',
                     border: '1px solid #444',
@@ -72,7 +83,7 @@ const StatsPanel = ({ stats }) => {
                         position: 'absolute', left: 0, top: 0, bottom: 0,
                         width: `${skillPercent}%`,
                         backgroundColor: '#27ae60',
-                        opacity: 0.3,
+                        opacity: 0.2,
                         zIndex: 0
                     }} />
                     <span style={{ position: 'relative', zIndex: 1, fontWeight: 'bold' }}>

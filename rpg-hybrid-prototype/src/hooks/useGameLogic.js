@@ -49,14 +49,13 @@ export const useGameLogic = () => {
 
     const visuals = useVisuals();
 
-    // --- HANDLE MONSTER ATTACK (REAL-TIME) ---
+    // --- HANDLE MONSTER ATTACK ---
     const handleMonsterAttack = useCallback((monster) => {
         if (gameState === 'GAME_OVER') return;
 
-        // --- CHEAT CHECK: GOD MODE ---
         if (playerRef.current.isGodMode) {
             visuals.showFloatText(positionRef.current.x, positionRef.current.y, "BLOCKED", "#3498db");
-            return; // Take 0 damage
+            return;
         }
 
         const hitResult = calculateHit(monster, playerRef.current);
@@ -79,7 +78,6 @@ export const useGameLogic = () => {
         }
     }, [gameState, visuals]);
 
-    // --- UPDATED ARGUMENTS: Pass full 'player' stats object ---
     const { monsters, setMonsters, removeMonster, updateMonster } = useMonsterManager(
         map, position, player, gameState, visuals.addLog, loadedMonsters,
         handleMonsterAttack
@@ -89,7 +87,8 @@ export const useGameLogic = () => {
         playerRef, positionRef, setPlayer, setGameState, removeMonster, updateMonster, visuals
     );
 
-    const { equipItem, unequipItem, consumeItem } = useInventoryLogic(player, setPlayer, visuals);
+    // --- UPDATED: Destructure sellItem here ---
+    const { equipItem, unequipItem, consumeItem, sellItem } = useInventoryLogic(player, setPlayer, visuals);
 
     const { healPlayer, descendStairs } = usePlayerActions(
         playerRef, positionRef, setPlayer, setPosition, setMap, setVisitedTiles, setMonsters, visuals, gameState
@@ -212,7 +211,6 @@ export const useGameLogic = () => {
         const initGame = async () => {
             const savedData = await loadGameState();
             if (savedData) {
-                console.log("Save found, loading...");
                 setPlayer({
                     ...initialStats, ...savedData.player,
                     speed: savedData.player.speed || initialStats.speed,
@@ -229,7 +227,6 @@ export const useGameLogic = () => {
                 if (savedData.map) setMap(savedData.map);
                 if (savedData.visitedTiles) setVisitedTiles(new Set(savedData.visitedTiles));
             } else {
-                console.log("No save found, setting up new game.");
                 const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
                 setMap(newMap);
                 const startPos = findRandomFloor(newMap);
@@ -279,9 +276,11 @@ export const useGameLogic = () => {
         handleTileClick, stopAutoMove,
         visitedTiles,
         log: visuals.log, floatingTexts: visuals.floatingTexts, hitTargetId: visuals.hitTargetId,
+        setPlayer,
+        addLog: visuals.addLog,
 
+        // --- UPDATED: Export sellItem & consumeItem ---
         consumeItem,
-        setPlayer,       // Allows external updates to player state
-        addLog: visuals.addLog // Allows external logging
+        sellItem
     };
 };

@@ -8,7 +8,7 @@ export const useCombat = (playerRef, positionRef, setPlayer, setGameState, remov
         const player = playerRef.current;
 
         // --- 1. ATTACK CALCULATION ---
-        // (Assumes calculateHit already handles damage variance/randomness)
+        // (Damage variance and critical hits are handled inside calculateHit)
         const hitResult = calculateHit(player, monster);
         let damage = hitResult.damage;
 
@@ -25,7 +25,7 @@ export const useCombat = (playerRef, positionRef, setPlayer, setGameState, remov
             visuals.addLog(`You hit ${monster.isBoss ? 'Dragon' : 'Monster'} for ${damage} damage.`);
         }
 
-        // --- 2. APPLY DAMAGE ---
+        // --- 2. APPLY DAMAGE TO MONSTER ---
         const newMonsterHp = monster.hp - damage;
 
         if (newMonsterHp <= 0) {
@@ -38,61 +38,73 @@ export const useCombat = (playerRef, positionRef, setPlayer, setGameState, remov
             const diff = player.level - monster.level;
             let multiplier = 1.0;
 
-            // Calculate Multiplier based on Level Gap
+            // Level Gap Multiplier
             if (diff > 0) {
-                // Player is stronger
+                // Player is higher level
                 if (diff <= 2) multiplier = 1.0;
                 else if (diff <= 4) multiplier = 0.5;
-                else multiplier = 0.1;
+                else multiplier = 0.1; // Grey mob
             } else if (diff < 0) {
-                // Player is weaker
+                // Player is lower level
                 const absDiff = Math.abs(diff);
                 if (absDiff <= 3) multiplier = 1.1;
                 else if (absDiff <= 5) multiplier = 1.2;
-                else multiplier = 0.5; // Anti-Exploit cap
+                else multiplier = 0.5; // Cap to prevent exploits
             }
 
-            const variance = Math.floor(Math.random() * (baseXp * 0.2)) - (baseXp * 0.1);
-            let xpGain = Math.floor((baseXp + variance) * multiplier);
+            const xpVariance = Math.floor(Math.random() * (baseXp * 0.2)) - (baseXp * 0.1);
+            let xpGain = Math.floor((baseXp + xpVariance) * multiplier);
             if (monster.isBoss) xpGain = xpGain * 5;
             if (xpGain < 1) xpGain = 1;
 
             visuals.addLog(`✨ Gained +${xpGain} XP`);
 
-            // --- B. LOOT DROP LOGIC ---
+            // --- B. GOLD DROP LOGIC ---
+            // Base: 5 Gold per level + Variance
+            let goldDrop = (monster.level * 5) + Math.floor(Math.random() * 10);
+            if (monster.isBoss) goldDrop *= 10; // Boss drops a lot
+
+            visuals.addLog(`🥮 Found ${goldDrop} Gold`);
+            visuals.showFloatText(monster.x, monster.y, `+${goldDrop} G`, '#f1c40f');
+
+            // --- C. LOOT DROP LOGIC ---
             let droppedItem = null;
             // Boss always drops, Normal mobs 30% chance
             if (monster.isBoss || Math.random() < 0.3) {
                 droppedItem = generateLoot(monster.level);
                 visuals.addLog(`🎁 Looted: ${droppedItem.name}`);
+                // Note: We use a different color for the float text based on rarity
                 visuals.showFloatText(monster.x, monster.y, "ITEM!", droppedItem.color);
             }
 
-            // --- C. PROCESS LEVEL UP ---
+            // --- D. PROCESS LEVEL UP ---
             const statsAfterXp = processLevelUp(player, xpGain);
 
             if (statsAfterXp.leveledUp) {
                 visuals.showFloatText(positionRef.current.x, positionRef.current.y, "LEVEL UP!", "#f1c40f");
                 visuals.addLog(`🎉 Level Up! You are now Level ${statsAfterXp.level}.`);
             } else {
-                visuals.showFloatText(positionRef.current.x, positionRef.current.y, `+${xpGain} XP`, "#f1c40f");
+                // Only show XP float if we didn't level up (to reduce clutter)
+                visuals.showFloatText(positionRef.current.x, positionRef.current.y, `+${xpGain} XP`, "#3498db");
             }
 
-            // --- D. UPDATE PLAYER STATE (SAFE MERGE) ---
+            // --- E. UPDATE PLAYER STATE (SAFE MERGE) ---
             setPlayer(prev => {
-                // 1. Get the new stats (HP, Level, XP)
+                // 1. Merge new stats (HP, Level, XP from processLevelUp)
                 const newState = { ...prev, ...statsAfterXp.updatedStats };
 
-                // 2. Add the item if one dropped
+                // 2. Add Gold
+                newState.gold = (prev.gold || 0) + goldDrop;
+
+                // 3. Add Item (if any)
                 if (droppedItem) {
-                    // Ensure we use the latest inventory from 'prev'
                     newState.inventory = [...(prev.inventory || []), droppedItem];
                 }
 
                 return newState;
             });
 
-            // --- E. WIN CONDITION ---
+            // --- F. WIN CONDITION ---
             if (monster.isBoss) {
                 setGameState('WON');
             }

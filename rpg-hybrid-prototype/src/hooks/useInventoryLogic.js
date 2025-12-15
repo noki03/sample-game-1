@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 
-// CHANGED: Added 'player' to arguments
+// Requires 'player' object to validate items before setting state
 export const useInventoryLogic = (player, setPlayer, visuals) => {
 
+    // --- EQUIP ITEM ---
     const equipItem = useCallback((item) => {
         setPlayer(prev => {
             const currentEquipment = prev.equipment || { weapon: null, armor: null };
@@ -36,6 +37,7 @@ export const useInventoryLogic = (player, setPlayer, visuals) => {
         });
     }, [setPlayer]);
 
+    // --- UNEQUIP ITEM ---
     const unequipItem = useCallback((type) => {
         setPlayer(prev => {
             const currentEquipment = prev.equipment || { weapon: null, armor: null };
@@ -59,12 +61,12 @@ export const useInventoryLogic = (player, setPlayer, visuals) => {
         });
     }, [setPlayer]);
 
-    // --- CONSUME ITEM (Fixed Duplicate Log) ---
+    // --- CONSUME ITEM (POTIONS) ---
     const consumeItem = useCallback((item) => {
         // 1. Validation OUTSIDE the setter
         if (item.type !== 'potion') return;
 
-        // Check if item actually exists in the provided player state (prevents spam clicks)
+        // Check if item actually exists in the provided player state (prevents spam/race conditions)
         const exists = player.inventory.find(i => i.uid === item.uid);
         if (!exists) return;
 
@@ -84,9 +86,8 @@ export const useInventoryLogic = (player, setPlayer, visuals) => {
 
         // 3. Update State
         setPlayer(prev => {
-            // Double-check existence in 'prev' to avoid race conditions
-            const currentItem = prev.inventory.find(i => i.uid === item.uid);
-            if (!currentItem) return prev;
+            // Double-check existence in 'prev' to be safe
+            if (!prev.inventory.find(i => i.uid === item.uid)) return prev;
 
             const newHp = Math.min(prev.maxHp, prev.hp + healAmount);
             const newInventory = prev.inventory.filter(i => i.uid !== item.uid);
@@ -97,7 +98,33 @@ export const useInventoryLogic = (player, setPlayer, visuals) => {
                 inventory: newInventory
             };
         });
-    }, [player, setPlayer, visuals]); // Added 'player' dependency
+    }, [player, setPlayer, visuals]);
 
-    return { equipItem, unequipItem, consumeItem };
+    // --- NEW: SELL ITEM ---
+    const sellItem = useCallback((item) => {
+        // 1. Validation
+        const exists = player.inventory.find(i => i.uid === item.uid);
+        if (!exists) return;
+
+        const sellValue = item.value || 10; // Default fallback
+
+        // 2. Log ONCE
+        if (visuals) {
+            visuals.addLog(`💰 Sold ${item.name} for ${sellValue} Gold`);
+            visuals.showFloatText(0, 0, `+${sellValue} G`, '#f1c40f');
+        }
+
+        // 3. Update State
+        setPlayer(prev => {
+            if (!prev.inventory.find(i => i.uid === item.uid)) return prev;
+
+            return {
+                ...prev,
+                gold: (prev.gold || 0) + sellValue,
+                inventory: prev.inventory.filter(i => i.uid !== item.uid)
+            };
+        });
+    }, [player, setPlayer, visuals]);
+
+    return { equipItem, unequipItem, consumeItem, sellItem };
 };

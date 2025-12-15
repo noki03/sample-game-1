@@ -26,7 +26,7 @@ export default defineConfig({
       origin: '*',
     },
     hmr: {
-      host: getLocalIP(), // dynamically resolved IP
+      // host: getLocalIP(), // dynamically resolved IP
       port: 5174,
     },
   },

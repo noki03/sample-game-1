@@ -8,7 +8,7 @@ const RARITY_TIERS = [
     { name: 'Sharpened', color: '#2ecc71', mult: 1.2, weight: 40 },
     { name: 'Hardened', color: '#3498db', mult: 1.5, weight: 25 },
     { name: 'Magical', color: '#9b59b6', mult: 2.0, weight: 10 },  // Rare, Strong
-    { name: 'Legendary', color: '#f1c40f', mult: 3.0, weight: 2 }   // Ultra Rare, OP
+    { name: 'Legendary', color: '#f1c40f', mult: 3.0, weight: 2 }    // Ultra Rare, OP
 ];
 
 const BASE_TYPES = {
@@ -62,7 +62,6 @@ const pickRarity = (level) => {
 
 export const generateLoot = (level) => {
     // --- POTIONS (25% Chance) ---
-    // Potions don't use rarity tiers in the same way, simpler logic
     if (Math.random() < 0.25) {
         return {
             uid: Date.now() + Math.random(),
@@ -71,7 +70,8 @@ export const generateLoot = (level) => {
             bonus: 25 + Math.floor(level * 5), // Heals 25 + 5 per level
             icon: '🍷',
             color: '#e74c3c', // Red
-            rarity: 'common'
+            rarity: 'common',
+            value: 15 + level // Cheap
         };
     }
 
@@ -86,17 +86,17 @@ export const generateLoot = (level) => {
 
     // 3. Calculate Stats
     // Formula: (ItemBase + Level) * RarityMultiplier
-    // Example Lvl 10 Sword: (5 + 10) = 15.
-    // Broken: 15 * 0.5 = 7 dmg
-    // Common: 15 * 1.0 = 15 dmg
-    // Legendary: 15 * 3.0 = 45 dmg!
-
-    // Add small variance (+/- 10%) so not every "Common Sword" is identical
     const basePower = baseItem.baseStat + level;
-    const variance = (Math.random() * 0.2) + 0.9; // 0.9 to 1.1
+    const variance = (Math.random() * 0.2) + 0.9; // 0.9 to 1.1 variance
 
     let finalBonus = Math.floor(basePower * rarity.mult * variance);
-    if (finalBonus < 1) finalBonus = 1; // Minimum 1
+    if (finalBonus < 1) finalBonus = 1;
+
+    // 4. Calculate Value (Gold)
+    // Formula: StatBonus * 10 * PriceMultiplier
+    // Price Multiplier scales with Rarity (Legendary items are worth 4x base price)
+    const priceMult = 1 + (RARITY_TIERS.indexOf(rarity) * 0.5);
+    const value = Math.floor(finalBonus * 10 * priceMult);
 
     return {
         uid: Date.now() + Math.random(),
@@ -105,11 +105,12 @@ export const generateLoot = (level) => {
         bonus: finalBonus,
         icon: baseItem.icon,
         color: rarity.color,
-        rarity: rarity.name.toLowerCase()
+        rarity: rarity.name.toLowerCase(),
+        value: value // <--- ADDED VALUE
     };
 };
 
-// --- NEW FUNCTION: Force specific generation ---
+// --- NEW FUNCTION: Force specific generation (For Cheats) ---
 export const generateSpecificLoot = (level, type, rarityName) => {
     // 1. Handle Potion
     if (type === 'potion') {
@@ -120,23 +121,27 @@ export const generateSpecificLoot = (level, type, rarityName) => {
             bonus: 25 + (level * 5),
             icon: '🍷',
             color: '#e74c3c',
-            rarity: 'common'
+            rarity: 'common',
+            value: 15
         };
     }
 
     // 2. Find Rarity Info
-    // Default to Common if not found
     const rarity = RARITY_TIERS.find(r => r.name.toLowerCase() === rarityName.toLowerCase())
         || RARITY_TIERS[2];
 
-    // 3. Pick Random Base for that Type (e.g. Random Sword/Axe if type is 'weapon')
+    // 3. Pick Random Base
     const baseList = BASE_TYPES[type] || BASE_TYPES['weapon'];
     const baseItem = baseList[Math.floor(Math.random() * baseList.length)];
 
-    // 4. Calculate Stats (Standard Formula)
+    // 4. Calculate Stats
     const basePower = baseItem.baseStat + level;
-    // No variance for cheats, give max potential
     const finalBonus = Math.floor(basePower * rarity.mult);
+
+    // 5. Calculate Value
+    const rarityIndex = RARITY_TIERS.indexOf(rarity);
+    const priceMult = 1 + (rarityIndex * 0.5);
+    const value = Math.floor(finalBonus * 10 * priceMult);
 
     return {
         uid: Date.now() + Math.random(),
@@ -145,6 +150,7 @@ export const generateSpecificLoot = (level, type, rarityName) => {
         bonus: finalBonus,
         icon: baseItem.icon,
         color: rarity.color,
-        rarity: rarity.name.toLowerCase()
+        rarity: rarity.name.toLowerCase(),
+        value: value // <--- ADDED VALUE
     };
 };

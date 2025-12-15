@@ -7,7 +7,7 @@ import GameOverScreen from './GameOverScreen';
 import ConfirmationModal from './ConfirmationModal';
 import InventoryScreen from './InventoryScreen';
 import MiniMap from './MiniMap';
-import CheatMenu from './CheatMenu'; // NEW IMPORT
+import CheatMenu from './CheatMenu';
 
 const GameContainer = () => {
     const {
@@ -15,15 +15,16 @@ const GameContainer = () => {
         player, position, map, log, gameState, monsters, isFogEnabled,
         toggleFog, handleKeyDown, resetGame, respawnPlayer,
         isInventoryOpen, toggleInventory, equipItem, unequipItem,
-        floatingTexts, hitTargetId, visitedTiles, handleTileClick, consumeItem,
+        floatingTexts, hitTargetId, visitedTiles, handleTileClick,
+        consumeItem, sellItem, // <--- Added sellItem here
 
-        // NEW EXPORTS
+        // EXPORTS
         setPlayer,
         addLog
     } = useGameLogic();
 
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
-    const [isCheatMenuOpen, setIsCheatMenuOpen] = useState(false); // NEW STATE
+    const [isCheatMenuOpen, setIsCheatMenuOpen] = useState(false);
 
     useEffect(() => {
         // Disable keyboard game inputs if a modal is open
@@ -70,11 +71,12 @@ const GameContainer = () => {
                 player={player}
                 onEquip={equipItem}
                 onUnequip={unequipItem}
-                onConsume={consumeItem} // <--- Pass it here
+                onConsume={consumeItem}
+                onSell={sellItem} // <--- Pass to Inventory
                 onClose={toggleInventory}
             />
 
-            {/* NEW CHEAT MENU */}
+            {/* CHEAT MENU */}
             <CheatMenu
                 isOpen={isCheatMenuOpen}
                 onClose={() => setIsCheatMenuOpen(false)}
@@ -107,7 +109,7 @@ const GameContainer = () => {
                         🗑️ Reset
                     </button>
 
-                    {/* NEW DEV BUTTON */}
+                    {/* DEV BUTTON */}
                     <button onClick={() => setIsCheatMenuOpen(true)} style={btnStyle('#8e44ad')}>
                         ⚙️ Dev
                     </button>
@@ -146,7 +148,7 @@ const btnStyle = (bg) => ({
     border: 'none', borderRadius: '6px', cursor: 'pointer',
     fontSize: '14px', fontWeight: 'bold',
     boxShadow: '0 4px 0 rgba(0,0,0,0.2)', transition: 'transform 0.1s',
-    minWidth: '80px' // Slightly smaller to fit 4 buttons
+    minWidth: '80px'
 });
 
 export default GameContainer;
