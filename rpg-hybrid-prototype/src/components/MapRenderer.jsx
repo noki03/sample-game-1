@@ -6,7 +6,7 @@ const VISIBILITY_RADIUS = 8;
 const VIEWPORT_WIDTH = 26;
 const VIEWPORT_HEIGHT = 18;
 
-const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingTexts, hitTargetId, visitedTiles }) => {
+const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingTexts, hitTargetId, visitedTiles, onTileClick }) => {
     const mapHeight = map.length;
     const mapWidth = map.length > 0 ? map[0].length : 0;
 
@@ -63,21 +63,25 @@ const MapRenderer = ({ map, playerPosition, monsters, isFogEnabled, floatingText
                             }
 
                             return (
-                                <Tile
+                                // CLICK HANDLER WRAPPER
+                                <div
                                     key={`${x},${y}`}
-                                    type={type}
-                                    isPlayer={playerPosition.x === x && playerPosition.y === y}
-                                    isMonster={!!monsterAtTile}
-                                    monsterLevel={monsterAtTile?.level}
-                                    isBoss={monsterAtTile?.isBoss}
-                                    // Pass HP Stats (Ready for future usage)
-                                    monsterHp={monsterAtTile?.hp}
-                                    monsterMaxHp={monsterAtTile?.maxHp}
-
-                                    isHit={monsterAtTile && monsterAtTile.id === hitTargetId}
-                                    isVisible={isVisible}
-                                    isVisited={isVisited}
-                                />
+                                    onClick={() => onTileClick && onTileClick(x, y)}
+                                    style={{ width: '32px', height: '32px', }}
+                                >
+                                    <Tile
+                                        type={type}
+                                        isPlayer={playerPosition.x === x && playerPosition.y === y}
+                                        isMonster={!!monsterAtTile}
+                                        monsterLevel={monsterAtTile?.level}
+                                        isBoss={monsterAtTile?.isBoss}
+                                        monsterHp={monsterAtTile?.hp}
+                                        monsterMaxHp={monsterAtTile?.maxHp}
+                                        isHit={monsterAtTile && monsterAtTile.id === hitTargetId}
+                                        isVisible={isVisible}
+                                        isVisited={isVisited}
+                                    />
+                                </div>
                             );
                         })}
                     </React.Fragment>

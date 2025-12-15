@@ -26,18 +26,37 @@ export const useInputHandler = (
         }
 
         let actionTaken = false;
+        const key = e.key.toUpperCase(); // Normalize input
 
-        switch (e.key.toUpperCase()) {
-            case 'W': if (!isInventoryOpen) { movePlayer(0, -1); actionTaken = true; } break;
-            case 'S': if (!isInventoryOpen) { movePlayer(0, 1); actionTaken = true; } break;
-            case 'A': if (!isInventoryOpen) { movePlayer(-1, 0); actionTaken = true; } break;
-            case 'D': if (!isInventoryOpen) { movePlayer(1, 0); actionTaken = true; } break;
+        switch (key) {
+            // MOVEMENT (WASD + ARROWS)
+            case 'W':
+            case 'ARROWUP':
+                if (!isInventoryOpen) { movePlayer(0, -1); actionTaken = true; }
+                break;
 
+            case 'S':
+            case 'ARROWDOWN':
+                if (!isInventoryOpen) { movePlayer(0, 1); actionTaken = true; }
+                break;
+
+            case 'A':
+            case 'ARROWLEFT':
+                if (!isInventoryOpen) { movePlayer(-1, 0); actionTaken = true; }
+                break;
+
+            case 'D':
+            case 'ARROWRIGHT':
+                if (!isInventoryOpen) { movePlayer(1, 0); actionTaken = true; }
+                break;
+
+            // ACTIONS
             case 'H': healPlayer(); actionTaken = true; break;
             case 'F': toggleFog(); actionTaken = true; break;
             case 'I': toggleInventory(); actionTaken = true; break;
             case 'ESCAPE': setIsInventoryOpen(false); actionTaken = true; break;
 
+            // STAIRS / INTERACT
             case ' ':
             case 'ENTER':
                 descendStairs();
@@ -49,7 +68,7 @@ export const useInputHandler = (
 
         if (actionTaken) {
             lastActionTimeRef.current = now;
-            e.preventDefault();
+            e.preventDefault(); // Stop page scrolling when using arrows
         }
     }, [gameState, player.speed, isInventoryOpen, actions]);
 
