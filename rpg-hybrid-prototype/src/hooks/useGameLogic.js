@@ -89,7 +89,7 @@ export const useGameLogic = () => {
         playerRef, positionRef, setPlayer, setGameState, removeMonster, updateMonster, visuals
     );
 
-    const { equipItem, unequipItem } = useInventoryLogic(setPlayer);
+    const { equipItem, unequipItem, consumeItem } = useInventoryLogic(player, setPlayer, visuals);
 
     const { healPlayer, descendStairs } = usePlayerActions(
         playerRef, positionRef, setPlayer, setPosition, setMap, setVisitedTiles, setMonsters, visuals, gameState
@@ -280,7 +280,7 @@ export const useGameLogic = () => {
         visitedTiles,
         log: visuals.log, floatingTexts: visuals.floatingTexts, hitTargetId: visuals.hitTargetId,
 
-        // --- NEW EXPORTS FOR CHEAT MENU ---
+        consumeItem,
         setPlayer,       // Allows external updates to player state
         addLog: visuals.addLog // Allows external logging
     };

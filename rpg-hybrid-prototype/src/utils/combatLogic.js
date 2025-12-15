@@ -4,55 +4,59 @@ export const calculateHit = (attacker, defender) => {
     let rawDmg = 0;
     const attackerLevel = attacker.level || 1;
 
-    // --- DAMAGE FORMULAS ---
+    // --- 1. BASE DAMAGE CALCULATION ---
     if (attacker.isMonster || attacker.isBoss) {
         // MONSTER ATTACK
-        // Base 4 + (2 per level).
-        // Lvl 1 = 6 dmg. Lvl 5 = 14 dmg.
         rawDmg = 4 + (attackerLevel * 2);
-
-        // Boss hits 2x harder
         if (attacker.isBoss) rawDmg = Math.floor(rawDmg * 1.5);
     } else {
         // PLAYER ATTACK
-        // Uses the 'attack' stat directly.
-        // We will buff the initial attack stat to 8.
         rawDmg = attacker.attack || 0;
     }
 
-    // --- EVASION (Speed Check) ---
+    // --- 2. EVASION (Speed Check) ---
     const defenderSpeed = defender.speed || 10;
     const attackerSpeed = attacker.speed || 10;
 
-    // You only dodge if you are FASTER than the attacker
+    // Only dodge if faster
     if (defenderSpeed > attackerSpeed) {
         const speedDiff = defenderSpeed - attackerSpeed;
-        const dodgeChance = Math.min(0.5, speedDiff * 0.03); // 3% per speed point diff
+
+        // Cap dodge chance at 40%
+        const dodgeChance = Math.min(0.40, speedDiff * 0.02);
 
         if (Math.random() < dodgeChance) {
             return { damage: 0, isCrit: false, isMiss: true };
         }
     }
 
-    // --- DEFENSE ---
+    // --- 3. DEFENSE REDUCTION ---
     const defense = defender.defense || 0;
-    // Minimum 1 damage always goes through (unless dodged)
-    let actualDmg = Math.max(1, rawDmg - defense);
 
-    // --- CRITS ---
+    // Ensure at least 10% of raw damage goes through (Chip damage)
+    const minDmg = Math.max(1, Math.floor(rawDmg * 0.1));
+    let finalDmg = Math.max(minDmg, rawDmg - defense);
+
+    // --- 4. DAMAGE VARIANCE (The "Juice") ---
+    // Randomize damage by ±15% (Multiplier between 0.85 and 1.15)
+    // Example: 100 dmg -> becomes 85 to 115
+    const variance = (Math.random() * 0.3) + 0.85;
+    finalDmg = Math.floor(finalDmg * variance);
+
+    // Ensure it doesn't drop to 0 after variance if it was supposed to do damage
+    if (finalDmg < 1) finalDmg = 1;
+
+    // --- 5. CRITICAL HITS ---
     let isCrit = false;
     if (!attacker.isMonster && !attacker.isBoss) {
-        // 10% base crit chance + bonus if high level
-        const critChance = 0.1;
-        if (Math.random() < critChance) {
-            actualDmg = Math.floor(actualDmg * 1.5);
+        // 10% base crit chance
+        if (Math.random() < 0.1) {
+            finalDmg = Math.floor(finalDmg * 1.5);
             isCrit = true;
         }
     }
 
-    if (isNaN(actualDmg)) actualDmg = 0;
-
-    return { damage: actualDmg, isCrit, isMiss: false };
+    return { damage: finalDmg, isCrit, isMiss: false };
 };
 
 export const processLevelUp = (currentStats, xpGain) => {
@@ -67,20 +71,21 @@ export const processLevelUp = (currentStats, xpGain) => {
 
     while (stats.xp >= stats.nextLevelXp) {
         stats.level += 1;
-        stats.maxHp += 15; // +15 HP per level
-        stats.attack += 2; // +2 ATK per level
-        stats.defense += 0.5; // +0.5 DEF (alternates every 2 levels)
-        stats.speed = (stats.speed || 10) + 0.5; // Slow speed growth
 
-        // Full heal on level up!
-        stats.hp = stats.maxHp;
+        // Growth Stats
+        stats.maxHp += 15;
+        stats.attack += 3;
+        stats.defense += 0.5;
+        stats.speed = (stats.speed || 10) + 0.5;
+
+        stats.hp = stats.maxHp; // Full Heal
 
         stats.xp = stats.xp - stats.nextLevelXp;
-        stats.nextLevelXp = Math.floor(stats.nextLevelXp * 1.4); // 40% harder each time
+        stats.nextLevelXp = Math.floor(stats.nextLevelXp * 1.25); // 1.25x Curve
+
         leveledUp = true;
     }
 
-    // Round floors
     stats.defense = Math.floor(stats.defense);
     stats.speed = Math.floor(stats.speed);
 

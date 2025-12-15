@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
-export const useInventoryLogic = (setPlayer) => {
+// CHANGED: Added 'player' to arguments
+export const useInventoryLogic = (player, setPlayer, visuals) => {
 
     const equipItem = useCallback((item) => {
         setPlayer(prev => {
@@ -9,7 +10,7 @@ export const useInventoryLogic = (setPlayer) => {
             const type = item.type;
             const oldItem = currentEquipment[type];
 
-            // Remove new item from inventory, add old item back if exists
+            // Remove new item from inventory, add old item back
             const newInventory = currentInventory.filter(i => i.uid !== item.uid);
             if (oldItem) newInventory.push(oldItem);
 
@@ -58,5 +59,45 @@ export const useInventoryLogic = (setPlayer) => {
         });
     }, [setPlayer]);
 
-    return { equipItem, unequipItem };
+    // --- CONSUME ITEM (Fixed Duplicate Log) ---
+    const consumeItem = useCallback((item) => {
+        // 1. Validation OUTSIDE the setter
+        if (item.type !== 'potion') return;
+
+        // Check if item actually exists in the provided player state (prevents spam clicks)
+        const exists = player.inventory.find(i => i.uid === item.uid);
+        if (!exists) return;
+
+        const missingHp = player.maxHp - player.hp;
+        if (missingHp <= 0) {
+            if (visuals) visuals.addLog("Health is already full!");
+            return;
+        }
+
+        // 2. Perform Side Effects (Logging) ONCE
+        const healAmount = Math.min(missingHp, item.bonus);
+
+        if (visuals) {
+            visuals.addLog(`🍷 Used ${item.name} (+${healAmount} HP)`);
+            visuals.showFloatText(0, 0, `+${healAmount}`, '#e74c3c');
+        }
+
+        // 3. Update State
+        setPlayer(prev => {
+            // Double-check existence in 'prev' to avoid race conditions
+            const currentItem = prev.inventory.find(i => i.uid === item.uid);
+            if (!currentItem) return prev;
+
+            const newHp = Math.min(prev.maxHp, prev.hp + healAmount);
+            const newInventory = prev.inventory.filter(i => i.uid !== item.uid);
+
+            return {
+                ...prev,
+                hp: newHp,
+                inventory: newInventory
+            };
+        });
+    }, [player, setPlayer, visuals]); // Added 'player' dependency
+
+    return { equipItem, unequipItem, consumeItem };
 };

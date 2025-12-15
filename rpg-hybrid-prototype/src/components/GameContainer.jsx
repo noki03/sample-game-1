@@ -15,7 +15,7 @@ const GameContainer = () => {
         player, position, map, log, gameState, monsters, isFogEnabled,
         toggleFog, handleKeyDown, resetGame, respawnPlayer,
         isInventoryOpen, toggleInventory, equipItem, unequipItem,
-        floatingTexts, hitTargetId, visitedTiles, handleTileClick,
+        floatingTexts, hitTargetId, visitedTiles, handleTileClick, consumeItem,
 
         // NEW EXPORTS
         setPlayer,
@@ -70,6 +70,7 @@ const GameContainer = () => {
                 player={player}
                 onEquip={equipItem}
                 onUnequip={unequipItem}
+                onConsume={consumeItem} // <--- Pass it here
                 onClose={toggleInventory}
             />
 
