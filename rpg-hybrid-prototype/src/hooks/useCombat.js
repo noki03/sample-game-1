@@ -8,14 +8,11 @@ export const useCombat = (playerRef, positionRef, setPlayer, setGameState, remov
         const player = playerRef.current;
 
         // --- 1. ATTACK CALCULATION ---
-        // (Damage variance and critical hits are handled inside calculateHit)
         const hitResult = calculateHit(player, monster);
         let damage = hitResult.damage;
 
-        // Cheat check
         if (player.isOneHitKill) damage = 99999;
 
-        // Visual Feedback
         if (hitResult.isMiss && !player.isOneHitKill) {
             visuals.showFloatText(monster.x, monster.y, "MISS", "#ccc");
             visuals.addLog(`You missed the ${monster.isBoss ? 'Dragon' : 'Monster'}.`);
@@ -25,55 +22,60 @@ export const useCombat = (playerRef, positionRef, setPlayer, setGameState, remov
             visuals.addLog(`You hit ${monster.isBoss ? 'Dragon' : 'Monster'} for ${damage} damage.`);
         }
 
-        // --- 2. APPLY DAMAGE TO MONSTER ---
+        // --- 2. APPLY DAMAGE ---
         const newMonsterHp = monster.hp - damage;
 
         if (newMonsterHp <= 0) {
             // ====== MONSTER DEATH ======
             removeMonster(monster.id);
-            visuals.addLog(`💀 You killed the ${monster.isBoss ? 'Dragon' : 'Monster'}!`);
 
-            // --- A. XP LOGIC (With Level Gaps) ---
+            if (monster.isBoss) {
+                visuals.addLog(`🔥 LEGENDARY VICTORY! The ${monster.name} has fallen!`);
+                visuals.showFloatText(monster.x, monster.y, "BOSS SLAIN", "#e74c3c");
+                // Bosses don't end the game anymore!
+            } else {
+                visuals.addLog(`💀 You killed the Monster!`);
+            }
+
+            // --- A. XP LOGIC ---
             const baseXp = monster.level * 10;
             const diff = player.level - monster.level;
             let multiplier = 1.0;
 
-            // Level Gap Multiplier
             if (diff > 0) {
-                // Player is higher level
                 if (diff <= 2) multiplier = 1.0;
                 else if (diff <= 4) multiplier = 0.5;
-                else multiplier = 0.1; // Grey mob
+                else multiplier = 0.1;
             } else if (diff < 0) {
-                // Player is lower level
                 const absDiff = Math.abs(diff);
                 if (absDiff <= 3) multiplier = 1.1;
                 else if (absDiff <= 5) multiplier = 1.2;
-                else multiplier = 0.5; // Cap to prevent exploits
+                else multiplier = 0.5;
             }
 
             const xpVariance = Math.floor(Math.random() * (baseXp * 0.2)) - (baseXp * 0.1);
             let xpGain = Math.floor((baseXp + xpVariance) * multiplier);
-            if (monster.isBoss) xpGain = xpGain * 5;
+            if (monster.isBoss) xpGain = xpGain * 10; // Massive XP for Boss
             if (xpGain < 1) xpGain = 1;
 
             visuals.addLog(`✨ Gained +${xpGain} XP`);
 
             // --- B. GOLD DROP LOGIC ---
-            // Base: 5 Gold per level + Variance
             let goldDrop = (monster.level * 5) + Math.floor(Math.random() * 10);
-            if (monster.isBoss) goldDrop *= 10; // Boss drops a lot
+            if (monster.isBoss) goldDrop = goldDrop * 20; // Massive Gold for Boss
 
             visuals.addLog(`🥮 Found ${goldDrop} Gold`);
             visuals.showFloatText(monster.x, monster.y, `+${goldDrop} G`, '#f1c40f');
 
             // --- C. LOOT DROP LOGIC ---
             let droppedItem = null;
-            // Boss always drops, Normal mobs 30% chance
+            // Boss = 100% Drop (Legendary?), Normal = 30%
             if (monster.isBoss || Math.random() < 0.3) {
+                // If Boss, we force a high rarity item? (Optional, requires itemGenerator update)
+                // For now, standard generation:
                 droppedItem = generateLoot(monster.level);
+
                 visuals.addLog(`🎁 Looted: ${droppedItem.name}`);
-                // Note: We use a different color for the float text based on rarity
                 visuals.showFloatText(monster.x, monster.y, "ITEM!", droppedItem.color);
             }
 
@@ -84,30 +86,22 @@ export const useCombat = (playerRef, positionRef, setPlayer, setGameState, remov
                 visuals.showFloatText(positionRef.current.x, positionRef.current.y, "LEVEL UP!", "#f1c40f");
                 visuals.addLog(`🎉 Level Up! You are now Level ${statsAfterXp.level}.`);
             } else {
-                // Only show XP float if we didn't level up (to reduce clutter)
                 visuals.showFloatText(positionRef.current.x, positionRef.current.y, `+${xpGain} XP`, "#3498db");
             }
 
-            // --- E. UPDATE PLAYER STATE (SAFE MERGE) ---
+            // --- E. UPDATE PLAYER STATE ---
             setPlayer(prev => {
-                // 1. Merge new stats (HP, Level, XP from processLevelUp)
                 const newState = { ...prev, ...statsAfterXp.updatedStats };
-
-                // 2. Add Gold
                 newState.gold = (prev.gold || 0) + goldDrop;
 
-                // 3. Add Item (if any)
                 if (droppedItem) {
                     newState.inventory = [...(prev.inventory || []), droppedItem];
                 }
-
                 return newState;
             });
 
-            // --- F. WIN CONDITION ---
-            if (monster.isBoss) {
-                setGameState('WON');
-            }
+            // REMOVED: setGameState('WON'); 
+            // The game continues!
 
         } else {
             // ====== MONSTER SURVIVED ======
