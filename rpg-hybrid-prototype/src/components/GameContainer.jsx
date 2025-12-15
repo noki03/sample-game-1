@@ -16,9 +16,9 @@ const GameContainer = () => {
         toggleFog, handleKeyDown, resetGame, respawnPlayer,
         isInventoryOpen, toggleInventory, equipItem, unequipItem,
         floatingTexts, hitTargetId, visitedTiles, handleTileClick,
-        consumeItem, sellItem, // <--- Added sellItem here
+        consumeItem, sellItem,
+        cheatNextFloor, // <--- Destructure here
 
-        // EXPORTS
         setPlayer,
         addLog
     } = useGameLogic();
@@ -72,7 +72,7 @@ const GameContainer = () => {
                 onEquip={equipItem}
                 onUnequip={unequipItem}
                 onConsume={consumeItem}
-                onSell={sellItem} // <--- Pass to Inventory
+                onSell={sellItem}
                 onClose={toggleInventory}
             />
 
@@ -83,6 +83,7 @@ const GameContainer = () => {
                 player={player}
                 setPlayer={setPlayer}
                 addLog={addLog}
+                onNextFloor={cheatNextFloor} // <--- Pass it here
             />
 
             {/* --- HEADER --- */}
