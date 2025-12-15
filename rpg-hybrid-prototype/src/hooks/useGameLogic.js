@@ -30,7 +30,6 @@ export const useGameLogic = () => {
     const [isFogEnabled, setIsFogEnabled] = useState(true);
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
     const [loadedMonsters, setLoadedMonsters] = useState(null);
-
     const [moveQueue, setMoveQueue] = useState([]);
 
     // Refs
@@ -41,6 +40,7 @@ export const useGameLogic = () => {
         positionRef.current = position;
     }, [player, position]);
 
+    // Game Tick (for animations/cooldowns)
     const [, setTick] = useState(0);
     useEffect(() => {
         const timer = setInterval(() => setTick(t => t + 1), 1000);
@@ -87,7 +87,6 @@ export const useGameLogic = () => {
         playerRef, positionRef, setPlayer, setGameState, removeMonster, updateMonster, visuals
     );
 
-    // --- UPDATED: Destructure sellItem here ---
     const { equipItem, unequipItem, consumeItem, sellItem } = useInventoryLogic(player, setPlayer, visuals);
 
     const { healPlayer, descendStairs } = usePlayerActions(
@@ -96,11 +95,36 @@ export const useGameLogic = () => {
 
     useCheatCodes(player, setPlayer, visuals.addLog);
 
-
-    // --- LOCAL ACTIONS ---
+    // --- ACTIONS ---
     const toggleFog = useCallback(() => setIsFogEnabled(p => !p), []);
     const toggleInventory = useCallback(() => setIsInventoryOpen(p => !p), []);
 
+    // --- NEW CHEAT: FORCE NEXT FLOOR ---
+    const cheatNextFloor = useCallback(() => {
+        // 1. Generate New Map
+        const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
+        const startPos = findRandomFloor(newMap);
+
+        // 2. Update Map State
+        setMap(newMap);
+        setPosition(startPos);
+        setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
+        setMonsters([]); // Clear old monsters
+        setMoveQueue([]); // Stop movement
+
+        // 3. Update Player Floor
+        setPlayer(prev => ({
+            ...prev,
+            floor: (prev.floor || 1) + 1
+        }));
+
+        // 4. Visuals
+        visuals.addLog("⏩ CHEAT: Warped to next floor.");
+        visuals.showFloatText(startPos.x, startPos.y, "WARP", "#8e44ad");
+
+    }, [setMap, setPosition, setPlayer, setMonsters, setVisitedTiles, visuals]);
+
+    // --- MOVEMENT ---
     const movePlayer = useCallback((dx, dy) => {
         if (gameState !== 'EXPLORATION') return;
 
@@ -271,7 +295,7 @@ export const useGameLogic = () => {
     return {
         isLoading: false,
         player, position, map, gameState, monsters, isFogEnabled,
-        isInventoryOpen, toggleInventory, equipItem, unequipItem,
+        isInventoryOpen, toggleInventory, equipItem, unequipItem, consumeItem, sellItem,
         toggleFog, handleKeyDown, resetGame, respawnPlayer,
         handleTileClick, stopAutoMove,
         visitedTiles,
@@ -279,8 +303,7 @@ export const useGameLogic = () => {
         setPlayer,
         addLog: visuals.addLog,
 
-        // --- UPDATED: Export sellItem & consumeItem ---
-        consumeItem,
-        sellItem
+        // --- EXPORT NEW CHEAT ---
+        cheatNextFloor
     };
 };

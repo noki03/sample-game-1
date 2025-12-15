@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { processLevelUp } from '../utils/combatLogic';
-import { generateSpecificLoot } from '../utils/itemGenerator'; // NEW IMPORT
+import { generateSpecificLoot } from '../utils/itemGenerator';
 
-const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog }) => {
+const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog, onNextFloor }) => {
     if (!isOpen) return null;
 
     // --- LOCAL STATE FOR SPAWNER ---
     const [spawnType, setSpawnType] = useState('weapon');
     const [spawnRarity, setSpawnRarity] = useState('legendary');
 
-    // --- EXISTING TOGGLES ---
+    // --- TOGGLES ---
     const toggleCheat = (flag, name) => {
         setPlayer(prev => {
             const newVal = !prev[flag];
@@ -39,15 +39,13 @@ const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog }) => {
         addLog("🛠️ CHEAT: Forced Level Up!");
     };
 
-    // --- NEW: SPAWN ITEM ---
+    // --- SPAWN ITEM ---
     const spawnItem = () => {
         const newItem = generateSpecificLoot(player.level, spawnType, spawnRarity);
-
         setPlayer(prev => ({
             ...prev,
             inventory: [...(prev.inventory || []), newItem]
         }));
-
         addLog(`🛠️ SPAWNED: ${newItem.name}`);
     };
 
@@ -59,7 +57,7 @@ const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog }) => {
         }}>
             <div style={{
                 backgroundColor: '#222', padding: '20px', borderRadius: '8px',
-                border: '2px solid #555', width: '320px', // Slightly wider
+                border: '2px solid #555', width: '340px',
                 boxShadow: '0 10px 25px rgba(0,0,0,0.8)',
                 color: '#ecf0f1', fontFamily: 'monospace'
             }}>
@@ -76,10 +74,18 @@ const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog }) => {
                     <CheatToggle label="👟 Super Speed" isActive={player.speed > 20} onClick={toggleSpeed} />
                 </div>
 
-                {/* ACTIONS */}
+                {/* ACTIONS GRID */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px', borderBottom: '1px solid #444', paddingBottom: '20px' }}>
                     <button onClick={fullHeal} style={actionBtnStyle}>💚 Full Heal</button>
                     <button onClick={levelUp} style={actionBtnStyle}>🆙 Level Up</button>
+
+                    {/* NEW BUTTON */}
+                    <button
+                        onClick={onNextFloor}
+                        style={{ ...actionBtnStyle, gridColumn: '1 / -1', backgroundColor: '#e67e22' }}
+                    >
+                        ⏩ Skip to Next Floor
+                    </button>
                 </div>
 
                 {/* ITEM SPAWNER */}
@@ -118,7 +124,8 @@ const CheatMenu = ({ isOpen, onClose, player, setPlayer, addLog }) => {
     );
 };
 
-// --- STYLES & SUBCOMPONENTS ---
+// --- SUBCOMPONENTS & STYLES ---
+
 const CheatToggle = ({ label, isActive, onClick }) => (
     <div
         onClick={onClick}
