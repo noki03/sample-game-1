@@ -16,7 +16,7 @@ export const usePlayerActions = (playerRef, positionRef, setPlayer, setPosition,
 
         // Check Cooldown
         const timeSinceLastHeal = currentTime - (current.lastHealTime || 0);
-        const cooldown = current.healCooldown || 20000;
+        const cooldown = current.healCooldown || 10000;
 
         if (timeSinceLastHeal < cooldown) {
             const secondsLeft = Math.ceil((cooldown - timeSinceLastHeal) / 1000);

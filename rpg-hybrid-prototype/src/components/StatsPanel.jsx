@@ -14,7 +14,7 @@ const StatsPanel = ({ stats }) => {
     // HEAL SKILL CALC
     const now = Date.now();
     const lastHeal = stats.lastHealTime || 0;
-    const cooldown = stats.healCooldown || 20000;
+    const cooldown = stats.healCooldown || 10000;
     const timePassed = now - lastHeal;
 
     // Percent Ready (0 to 100%)

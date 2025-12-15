@@ -224,7 +224,7 @@ export const useGameLogic = () => {
                     speed: savedData.player.speed || initialStats.speed,
                     floor: savedData.player.floor || 1,
                     lastHealTime: savedData.player.lastHealTime || 0,
-                    healCooldown: savedData.player.healCooldown || 20000,
+                    healCooldown: savedData.player.healCooldown || 10000,
                     inventory: savedData.player.inventory || [],
                     equipment: savedData.player.equipment || { weapon: null, armor: null }
                 });

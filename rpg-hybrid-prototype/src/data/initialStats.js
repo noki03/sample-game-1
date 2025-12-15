@@ -9,7 +9,7 @@ export const initialStats = {
     // REPLACED POTIONS WITH SKILL DATA
     // potions: 3, <--- Removed
     lastHealTime: 0, // Timestamp of last use
-    healCooldown: 20000, // 20 Seconds (in ms)
+    healCooldown: 10000, // 10 Seconds (in ms)
 
     attack: 8,
     defense: 0,
