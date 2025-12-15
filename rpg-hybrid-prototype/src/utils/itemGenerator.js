@@ -108,3 +108,43 @@ export const generateLoot = (level) => {
         rarity: rarity.name.toLowerCase()
     };
 };
+
+// --- NEW FUNCTION: Force specific generation ---
+export const generateSpecificLoot = (level, type, rarityName) => {
+    // 1. Handle Potion
+    if (type === 'potion') {
+        return {
+            uid: Date.now() + Math.random(),
+            name: 'Health Potion',
+            type: 'potion',
+            bonus: 25 + (level * 5),
+            icon: '🍷',
+            color: '#e74c3c',
+            rarity: 'common'
+        };
+    }
+
+    // 2. Find Rarity Info
+    // Default to Common if not found
+    const rarity = RARITY_TIERS.find(r => r.name.toLowerCase() === rarityName.toLowerCase())
+        || RARITY_TIERS[2];
+
+    // 3. Pick Random Base for that Type (e.g. Random Sword/Axe if type is 'weapon')
+    const baseList = BASE_TYPES[type] || BASE_TYPES['weapon'];
+    const baseItem = baseList[Math.floor(Math.random() * baseList.length)];
+
+    // 4. Calculate Stats (Standard Formula)
+    const basePower = baseItem.baseStat + level;
+    // No variance for cheats, give max potential
+    const finalBonus = Math.floor(basePower * rarity.mult);
+
+    return {
+        uid: Date.now() + Math.random(),
+        name: `${rarity.name} ${baseItem.name}`,
+        type: type,
+        bonus: finalBonus,
+        icon: baseItem.icon,
+        color: rarity.color,
+        rarity: rarity.name.toLowerCase()
+    };
+};
