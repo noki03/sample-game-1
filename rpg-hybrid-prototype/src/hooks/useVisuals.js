@@ -16,10 +16,15 @@ export const useVisuals = () => {
     // --- FLOATING TEXT ---
     const showFloatText = useCallback((x, y, text, color) => {
         const id = Date.now() + Math.random();
+
+        // Add text
         setFloatingTexts(prev => [...prev, { id, x, y, text, color }]);
+
+        // Remove text after 2 SECONDS (Increased from 800ms/1000ms)
         setTimeout(() => {
             setFloatingTexts(prev => prev.filter(ft => ft.id !== id));
-        }, 850);
+        }, 2000);
+
     }, []);
 
     // --- HIT ANIMATION ---
