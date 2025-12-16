@@ -8,6 +8,13 @@ const StatsPanel = ({ stats }) => {
         return () => clearInterval(timer);
     }, []);
 
+    // --- 1. CALCULATE TOTAL STATS (Base + Equipment) ---
+    const weaponBonus = stats.equipment?.weapon?.bonus || 0;
+    const armorBonus = stats.equipment?.armor?.bonus || 0;
+
+    const totalAtk = (stats.attack || 0) + weaponBonus;
+    const totalDef = (stats.defense || 0) + armorBonus;
+
     // XP Calc
     const xpPercent = Math.min(100, Math.max(0, (stats.xp / stats.nextLevelXp) * 100));
 
@@ -31,7 +38,7 @@ const StatsPanel = ({ stats }) => {
                 HERO STATS
             </h3>
 
-            {/* --- NEW: GOLD DISPLAY --- */}
+            {/* --- GOLD DISPLAY --- */}
             <div style={{
                 marginBottom: '15px', padding: '8px', backgroundColor: '#f1c40f15',
                 borderRadius: '4px', border: '1px solid #f1c40f', color: '#f1c40f',
@@ -65,8 +72,19 @@ const StatsPanel = ({ stats }) => {
 
             {/* Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px' }}>
-                <div style={{ color: '#f1c40f' }}>⚔️ ATK: {stats.attack}</div>
-                <div style={{ color: '#3498db' }}>🛡️ DEF: {stats.defense}</div>
+
+                {/* ATTACK (Shows Base + Bonus) */}
+                <div style={{ color: '#f1c40f' }}>
+                    ⚔️ ATK: {totalAtk}
+                    {weaponBonus > 0 && <span style={{ fontSize: '10px', marginLeft: '4px', color: '#fff' }}>(+{weaponBonus})</span>}
+                </div>
+
+                {/* DEFENSE (Shows Base + Bonus) */}
+                <div style={{ color: '#3498db' }}>
+                    🛡️ DEF: {totalDef}
+                    {armorBonus > 0 && <span style={{ fontSize: '10px', marginLeft: '4px', color: '#fff' }}>(+{armorBonus})</span>}
+                </div>
+
                 <div style={{ color: '#2ecc71' }}>👟 SPD: {stats.speed || 10}</div>
 
                 {/* HEAL SKILL UI */}
