@@ -3,7 +3,7 @@
 
 ## 🌟 Game Overview
 
-The **Minimal RPG Prototype** is a compact, **speed-governed, grid-based RPG** developed using modern React Hooks. It serves as a proof-of-concept for stable core game mechanics, highly responsive input, and a clean, modular architecture.
+The **Minimal RPG Prototype** is a compact, **grid-based RPG** developed using modern React. It serves as a proof-of-concept for stable core game mechanics, highly responsive input, and a clean, modular architecture. This project/game is for protyping sample pet-project.
 
 The core objective is to explore randomly generated dungeons, engage in fast-paced combat, manage loot, and descend to new floors while improving your character.
 
