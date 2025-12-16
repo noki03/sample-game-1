@@ -19,10 +19,10 @@ import { usePlayerActions } from './usePlayerActions';
 import { useInputHandler } from './useInputHandler';
 
 export const useGameLogic = () => {
-    // 0. TOP-LEVEL STATE (Required for persistence flag)
+    // 0. TOP-LEVEL STATE
     const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-    // --- 1. CORE STATE: Extracted to useDungeonState ---
+    // --- 1. CORE STATE: useDungeonState ---
     const {
         player, setPlayer, position, setPosition, map, setMap,
         visitedTiles, setVisitedTiles, updateVisited,
@@ -44,24 +44,22 @@ export const useGameLogic = () => {
     // --- 2. BASE SYSTEMS ---
     const visuals = useVisuals();
 
-    // Game Tick (Original useEffect)
+    // Game Tick (Original useEffect for non-movement cooldowns)
     const [, setTick] = useState(0);
     useEffect(() => {
         const timer = setInterval(() => setTick(t => t + 1), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    // --- Monster Attack Logic (Remains here as the central damage callback) ---
+    // --- Monster Attack Logic (Callback) ---
     const handleMonsterAttack = useCallback((monster) => {
         if (gameState === 'GAME_OVER') return;
-
         if (playerRef.current.isGodMode) {
             visuals.showFloatText(positionRef.current.x, positionRef.current.y, "BLOCKED", "#3498db");
             return;
         }
 
         const hitResult = calculateHit(monster, playerRef.current);
-
         if (hitResult.isMiss) {
             visuals.showFloatText(positionRef.current.x, positionRef.current.y, "DODGE!", "#2ecc71");
         } else {
@@ -82,8 +80,6 @@ export const useGameLogic = () => {
 
 
     // --- 3. MANAGERS ---
-
-    // useMonsterManager
     const { monsters: currentMonsters, setMonsters: managerSetMonsters, removeMonster, updateMonster } = useMonsterManager(
         map, position, player, gameState, visuals.addLog, loadedMonsters,
         handleMonsterAttack
@@ -95,6 +91,7 @@ export const useGameLogic = () => {
 
     const { equipItem, unequipItem, consumeItem, sellItem } = useInventoryLogic(player, setPlayer, visuals);
 
+    // NOTE: descendStairs is defined here and used below in actions
     const { healPlayer, descendStairs } = usePlayerActions(
         playerRef, positionRef, setPlayer, setPosition, setMap, setVisitedTiles, managerSetMonsters, visuals, gameState
     );
@@ -102,8 +99,52 @@ export const useGameLogic = () => {
     useCheatCodes(player, setPlayer, visuals.addLog);
 
 
-    // --- MOVEMENT SYSTEM (NEWLY EXTRACTED) ---
-    const movementState = { map, position, player, gameState, monsters: currentMonsters, resolveCombat, moveQueue };
+    // --- 4. ACTIONS (Defined early for useInputHandler) ---
+    const toggleFog = useCallback(() => setIsFogEnabled(p => !p), [setIsFogEnabled]);
+    const toggleInventory = useCallback(() => setIsInventoryOpen(p => !p), [setIsInventoryOpen]);
+
+    const respawnPlayer = useCallback(() => {
+        setPlayer(prev => ({ ...prev, hp: Math.floor(prev.maxHp * 0.3) }));
+        const safePos = findRandomFloor(map);
+        setPosition(safePos);
+        setGameState('EXPLORATION');
+        setMoveQueue([]);
+        visuals.addLog("🩹 You woke up dazed and injured...");
+        visuals.showFloatText(safePos.x, safePos.y, "Revived", "#e67e22");
+        setVisitedTiles(prev => new Set(prev).add(`${safePos.x},${safePos.y}`));
+    }, [map, visuals, setPlayer, setPosition, setGameState, setMoveQueue, setVisitedTiles]);
+
+    const cheatNextFloor = useCallback(() => {
+        const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
+        const startPos = findRandomFloor(newMap);
+
+        setMap(newMap);
+        setPosition(startPos);
+        setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
+        managerSetMonsters([]);
+        setMoveQueue([]);
+
+        setPlayer(prev => ({ ...prev, floor: (prev.floor || 1) + 1 }));
+
+        visuals.addLog("⏩ CHEAT: Warped to next floor.");
+        visuals.showFloatText(startPos.x, startPos.y, "WARP", "#8e44ad");
+    }, [setMap, setPosition, setPlayer, managerSetMonsters, setVisitedTiles, visuals, setMoveQueue]);
+
+
+    // --- 5. MOVEMENT SYSTEM SETUP ---
+
+    // INPUT HANDLER: Gets the state of held keys
+    const { keysHeldRef } = useInputHandler(gameState, player, isInventoryOpen, {
+        resetGame: () => console.warn("Reset not ready"),
+        healPlayer, toggleFog, toggleInventory, setIsInventoryOpen,
+        descendStairs: () => descendStairs(map)
+    });
+
+    // MOVEMENT LOGIC: Consumes state and executes movement
+    const movementState = {
+        map, position, player, gameState, monsters: currentMonsters, resolveCombat, moveQueue,
+        keysHeldRef: keysHeldRef || { current: {} } // Defensive initialization
+    };
     const movementSetters = { setPosition, setMoveQueue };
 
     const {
@@ -117,68 +158,26 @@ export const useGameLogic = () => {
         MAP_WIDTH, MAP_HEIGHT
     );
 
-    // --- INPUT WRAPPER (To maintain stopAutoMove functionality for WASD) ---
+    // --- INPUT WRAPPER (Used for immediate actions, like stopping the queue) ---
     const movePlayer = useCallback((dx, dy) => {
-        // Fix for heavy feeling: only call stopAutoMove if the queue is actually active
         if (moveQueue.length > 0) {
             stopAutoMove();
         }
+        // Execute the single move (speed check is now inside moveSingleStep)
         moveSingleStep(dx, dy);
     }, [stopAutoMove, moveSingleStep, moveQueue]);
 
 
-    // --- RESPITE ACTIONS (Original implementation retained) ---
-    const respawnPlayer = useCallback(() => {
-        setPlayer(prev => ({ ...prev, hp: Math.floor(prev.maxHp * 0.3) }));
-        const safePos = findRandomFloor(map);
-        setPosition(safePos);
-        setGameState('EXPLORATION');
-        setMoveQueue([]);
-        visuals.addLog("🩹 You woke up dazed and injured...");
-        visuals.showFloatText(safePos.x, safePos.y, "Revived", "#e67e22");
-        setVisitedTiles(prev => new Set(prev).add(`${safePos.x},${safePos.y}`));
-    }, [map, visuals, setPlayer, setPosition, setGameState, setMoveQueue, setVisitedTiles]);
-
-
-    // --- LOAD & SAVE (Extracted to Persistence Hook) ---
+    // --- 6. PERSISTENCE & FINAL SETUP ---
+    // Persistence hook MUST run after all data has been initialized
     const { resetGame } = useDataPersistence(
         { player, position, monsters: currentMonsters, gameState, isFogEnabled, map, visitedTiles },
         { setPlayer, setPosition, setMap, setVisitedTiles, setGameState, setIsFogEnabled, setLoadedMonsters, setMonsters: managerSetMonsters, setMoveQueue, visuals },
         setIsDataLoaded
     );
 
-    // --- CHEATS & ACTIONS (Original implementation retained) ---
-    const toggleFog = useCallback(() => setIsFogEnabled(p => !p), [setIsFogEnabled]);
-    const toggleInventory = useCallback(() => setIsInventoryOpen(p => !p), [setIsInventoryOpen]);
-
-    const cheatNextFloor = useCallback(() => {
-        const newMap = generateDungeon(MAP_WIDTH, MAP_HEIGHT);
-        const startPos = findRandomFloor(newMap);
-
-        setMap(newMap);
-        setPosition(startPos);
-        setVisitedTiles(new Set([`${startPos.x},${startPos.y}`]));
-        managerSetMonsters([]); // Use manager setter
-        setMoveQueue([]);
-
-        setPlayer(prev => ({ ...prev, floor: (prev.floor || 1) + 1 }));
-
-        visuals.addLog("⏩ CHEAT: Warped to next floor.");
-        visuals.showFloatText(startPos.x, startPos.y, "WARP", "#8e44ad");
-    }, [setMap, setPosition, setPlayer, managerSetMonsters, setVisitedTiles, visuals, setMoveQueue]);
-
-    // --- VISIBILITY (Original useEffect) ---
+    // --- VISIBILITY ---
     useEffect(() => { if (isDataLoaded) updateVisited(position); }, [position, isDataLoaded, updateVisited]);
-
-
-    // --- INPUT HANDLING ---
-    const { handleKeyDown } = useInputHandler(gameState, player, isInventoryOpen, {
-        resetGame,
-        movePlayer: (dx, dy) => { stopAutoMove(); movePlayer(dx, dy); }, // Calls the new wrapper
-        healPlayer, toggleFog,
-        toggleInventory, setIsInventoryOpen,
-        descendStairs: () => descendStairs(map)
-    });
 
 
     if (!isDataLoaded) return { isLoading: true };
@@ -187,7 +186,9 @@ export const useGameLogic = () => {
         isLoading: false,
         player, position, map, gameState, monsters: currentMonsters, isFogEnabled,
         isInventoryOpen, toggleInventory, equipItem, unequipItem, consumeItem, sellItem,
-        toggleFog, handleKeyDown, resetGame, respawnPlayer,
+        toggleFog,
+        handleKeyDown: () => { }, // Input handler is internal now
+        resetGame, respawnPlayer,
         handleTileClick, stopAutoMove,
         visitedTiles,
         log: visuals.log, floatingTexts: visuals.floatingTexts, hitTargetId: visuals.hitTargetId,

@@ -1,76 +1,85 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
+
+// External object to track held keys. Used by reference across components.
+const keysHeld = {};
 
 export const useInputHandler = (
     gameState, player, isInventoryOpen, actions
 ) => {
-    const lastActionTimeRef = useRef(0);
+    // Reference to the external keysHeld object, which will be read by useMovementLogic.
+    const keysHeldRef = useRef(keysHeld);
 
+    // --- Key Tracker Functions ---
+    const updateKeys = (key, isDown) => {
+        const keyMap = {
+            'W': 'w', 'S': 's', 'A': 'a', 'D': 'd',
+            'ARROWUP': 'w', 'ARROWDOWN': 's', 'ARROWLEFT': 'a', 'ARROWRIGHT': 'd'
+        };
+        const directionalKey = keyMap[key.toUpperCase()];
+        if (directionalKey) {
+            keysHeld[directionalKey] = isDown;
+        }
+    };
+
+    // --- Primary Key Down Handler (Registers key hold and handles non-movement actions) ---
     const handleKeyDown = useCallback((e) => {
-        const {
-            resetGame, movePlayer, healPlayer, toggleFog,
-            toggleInventory, setIsInventoryOpen, descendStairs
-        } = actions;
+        const key = e.key.toUpperCase();
 
+        // 1. Update Directional Key State
+        updateKeys(key, true);
+
+        // 2. Handle Game Flow/Actions (Non-Movement)
         if (gameState === 'GAME_OVER') {
-            if (e.key.toUpperCase() === 'R') resetGame();
+            if (key === 'R') actions.resetGame();
             return;
         }
 
-        // --- SPEED CALCULATION ---
-        const currentSpeed = player.speed || 10;
-        const turnDelay = Math.max(40, 160 - (currentSpeed * 5));
+        // Handle global control keys first
+        if (key === 'ESCAPE') { actions.setIsInventoryOpen(false); e.preventDefault(); return; }
+        if (key === 'I') { actions.toggleInventory(); e.preventDefault(); return; }
 
-        const now = Date.now();
-        if (now - lastActionTimeRef.current < turnDelay) {
-            return;
-        }
+        if (isInventoryOpen) return; // Block all other input if inventory is open
 
         let actionTaken = false;
-        const key = e.key.toUpperCase(); // Normalize input
 
+        // Check for non-movement actions
         switch (key) {
-            // MOVEMENT (WASD + ARROWS)
-            case 'W':
-            case 'ARROWUP':
-                if (!isInventoryOpen) { movePlayer(0, -1); actionTaken = true; }
-                break;
-
-            case 'S':
-            case 'ARROWDOWN':
-                if (!isInventoryOpen) { movePlayer(0, 1); actionTaken = true; }
-                break;
-
-            case 'A':
-            case 'ARROWLEFT':
-                if (!isInventoryOpen) { movePlayer(-1, 0); actionTaken = true; }
-                break;
-
-            case 'D':
-            case 'ARROWRIGHT':
-                if (!isInventoryOpen) { movePlayer(1, 0); actionTaken = true; }
-                break;
-
-            // ACTIONS
-            case 'H': healPlayer(); actionTaken = true; break;
-            case 'F': toggleFog(); actionTaken = true; break;
-            case 'I': toggleInventory(); actionTaken = true; break;
-            case 'ESCAPE': setIsInventoryOpen(false); actionTaken = true; break;
-
-            // STAIRS / INTERACT
+            case 'H': actions.healPlayer(); actionTaken = true; break;
+            case 'F': actions.toggleFog(); actionTaken = true; break;
             case ' ':
-            case 'ENTER':
-                descendStairs();
-                actionTaken = true;
-                break;
-
-            default: return;
+            case 'ENTER': actions.descendStairs(); actionTaken = true; break;
+            default: break;
         }
 
         if (actionTaken) {
-            lastActionTimeRef.current = now;
-            e.preventDefault(); // Stop page scrolling when using arrows
+            e.preventDefault();
+        } else if (keysHeldRef.current['w'] || keysHeldRef.current['s'] || keysHeldRef.current['a'] || keysHeldRef.current['d']) {
+            // If any directional key is held, prevent default to stop scrolling
+            e.preventDefault();
         }
-    }, [gameState, player.speed, isInventoryOpen, actions]);
 
-    return { handleKeyDown, lastActionTimeRef };
+    }, [gameState, isInventoryOpen, actions]);
+
+    // --- Key Up Handler (Clears key state) ---
+    const handleKeyUp = useCallback((e) => {
+        const key = e.key.toUpperCase();
+        updateKeys(key, false);
+    }, []);
+
+
+    // --- Global Listener Setup ---
+    useEffect(() => {
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('keyup', handleKeyUp);
+            // Clean up keysHeld when component unmounts
+            Object.keys(keysHeld).forEach(k => delete keysHeld[k]);
+        };
+    }, [handleKeyDown, handleKeyUp]);
+
+
+    return { keysHeldRef };
 };

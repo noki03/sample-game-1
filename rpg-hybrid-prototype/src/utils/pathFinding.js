@@ -7,11 +7,12 @@ export const findPath = (start, end, map) => {
     // Helper to get a unique key for the set
     const key = (x, y) => `${x},${y}`;
 
-    // Heuristic: Manhattan Distance (fast calculation for grids)
-    const h = (n) => Math.abs(n.x - end.x) + Math.abs(n.y - end.y);
+    // --- CHANGE 1: Update Heuristic (Euclidean Distance is best for grids with diagonals) ---
+    // Heuristic: Euclidean Distance (h is the straight-line distance)
+    const h = (n) => Math.sqrt(Math.pow(n.x - end.x, 2) + Math.pow(n.y - end.y, 2));
 
     const openSet = [];
-    const openSetHash = new Set(); // For fast lookup
+    const openSetHash = new Set();
     const closedSet = new Set();
 
     // Start Node
@@ -22,55 +23,74 @@ export const findPath = (start, end, map) => {
     openSet.push(startNode);
     openSetHash.add(key(start.x, start.y));
 
+    // Define movement costs
+    const CARDINAL_COST = 1;
+    // Approximation of sqrt(2) for diagonal movement cost
+    const DIAGONAL_COST = Math.SQRT2;
+
     while (openSet.length > 0) {
-        // 1. Get node with lowest F score
+        // ... (Finding lowest F score and checking if end is reached remains the same) ...
         let lowInd = 0;
         for (let i = 0; i < openSet.length; i++) {
             if (openSet[i].f < openSet[lowInd].f) {
                 lowInd = i;
             }
         }
-
         let current = openSet[lowInd];
 
-        // 2. Check if we reached the end
         if (current.x === end.x && current.y === end.y) {
+            // ... (Path reconstruction remains the same) ...
             const path = [];
             let temp = current;
             while (temp.parent) {
                 path.push({ x: temp.x, y: temp.y });
                 temp = temp.parent;
             }
-            // Return path from Start -> End
-            // Note: The path includes the target, but not the start point
             return path.reverse();
         }
 
-        // 3. Move current from Open to Closed
         openSet.splice(lowInd, 1);
         openSetHash.delete(key(current.x, current.y));
         closedSet.add(key(current.x, current.y));
 
-        // 4. Check Neighbors (Up, Down, Left, Right)
-        const neighbors = [
-            { x: current.x, y: current.y - 1 }, // Up
-            { x: current.x, y: current.y + 1 }, // Down
-            { x: current.x - 1, y: current.y }, // Left
-            { x: current.x + 1, y: current.y }  // Right
+        // --- CHANGE 2: Add Diagonal Neighbors ---
+        // (dx, dy) pairs: Cardinal first, then Diagonal
+        const neighborDeltas = [
+            // Cardinal
+            { dx: 0, dy: -1, cost: CARDINAL_COST },
+            { dx: 0, dy: 1, cost: CARDINAL_COST },
+            { dx: -1, dy: 0, cost: CARDINAL_COST },
+            { dx: 1, dy: 0, cost: CARDINAL_COST },
+            // Diagonal
+            { dx: -1, dy: -1, cost: DIAGONAL_COST }, // Up-Left
+            { dx: 1, dy: -1, cost: DIAGONAL_COST },  // Up-Right
+            { dx: -1, dy: 1, cost: DIAGONAL_COST },  // Down-Left
+            { dx: 1, dy: 1, cost: DIAGONAL_COST }   // Down-Right
         ];
 
-        for (let neighbor of neighbors) {
+        for (const delta of neighborDeltas) {
+            const neighbor = { x: current.x + delta.dx, y: current.y + delta.dy };
+
             // Validity Check: Bounds
             if (neighbor.x < 0 || neighbor.x >= cols || neighbor.y < 0 || neighbor.y >= rows) continue;
 
             // Validity Check: Walls (1 is Wall)
             if (map[neighbor.y][neighbor.x] === 1) continue;
 
+            // Check for Corner Cutting (Optional, but often desirable in RPGs)
+            // If we are moving diagonally, ensure the two adjacent cardinal tiles are NOT both walls.
+            if (delta.cost === DIAGONAL_COST) {
+                const wall1 = map[current.y + delta.dy][current.x]; // Vertical adjacent
+                const wall2 = map[current.y][current.x + delta.dx]; // Horizontal adjacent
+                // If both adjacent cardinal tiles are walls, we cannot move diagonally (prevents "squeezing")
+                if (wall1 === 1 && wall2 === 1) continue;
+            }
+
             // Validity Check: Already checked
             if (closedSet.has(key(neighbor.x, neighbor.y))) continue;
 
-            // Calculate G score (distance from start)
-            const gScore = current.g + 1;
+            // --- CHANGE 3: Use the correct cost for G score ---
+            const gScore = current.g + delta.cost;
 
             // Check if better path or new path
             let neighborNode = openSet.find(n => n.x === neighbor.x && n.y === neighbor.y);
