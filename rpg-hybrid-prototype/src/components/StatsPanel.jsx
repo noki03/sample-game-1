@@ -1,81 +1,132 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const StatsPanel = ({ stats }) => {
-    // Destructure new stats
-    const { level, hp, maxHp, xp, nextLevelXp, potions, attack, defense } = stats;
+    // Force local update every 500ms to animate cooldown text
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const timer = setInterval(() => setTick(t => t + 1), 500);
+        return () => clearInterval(timer);
+    }, []);
 
-    const hpPercent = (hp / maxHp) * 100;
-    const xpPercent = (xp / nextLevelXp) * 100;
+    // --- 1. CALCULATE TOTAL STATS (Base + Equipment) ---
+    const weaponBonus = stats.equipment?.weapon?.bonus || 0;
+    const armorBonus = stats.equipment?.armor?.bonus || 0;
+
+    const totalAtk = (stats.attack || 0) + weaponBonus;
+    const totalDef = (stats.defense || 0) + armorBonus;
+
+    // XP Calc
+    const xpPercent = Math.min(100, Math.max(0, (stats.xp / stats.nextLevelXp) * 100));
+
+    // HEAL SKILL CALC
+    const now = Date.now();
+    const lastHeal = stats.lastHealTime || 0;
+    const cooldown = stats.healCooldown || 10000;
+    const timePassed = now - lastHeal;
+
+    // Percent Ready (0 to 100%)
+    let skillPercent = Math.min(100, (timePassed / cooldown) * 100);
+    const isReady = skillPercent >= 100;
+    const secondsWait = Math.ceil((cooldown - timePassed) / 1000);
 
     return (
         <div style={{
-            border: '1px solid #555',
-            padding: '15px',
-            minWidth: '220px',
-            backgroundColor: '#3c3c3c',
-            borderRadius: '8px',
-            color: '#f0f0f0'
+            backgroundColor: '#222', padding: '15px', borderRadius: '8px', border: '1px solid #444',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.3)', color: '#ecf0f1', fontFamily: 'monospace'
         }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ marginTop: 0, marginBottom: '10px' }}>✨ Adventurer</h3>
-                <span style={{ fontSize: '18px' }}>
-                    🧪 x{potions}
-                </span>
-            </div>
+            <h3 style={{ marginTop: 0, borderBottom: '1px solid #555', paddingBottom: '5px' }}>
+                HERO STATS
+            </h3>
 
-            <p style={{ margin: '5px 0', fontSize: '18px', fontWeight: 'bold' }}>Level {level}</p>
-
-            {/* --- NEW STATS GRID --- */}
+            {/* --- GOLD DISPLAY --- */}
             <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '10px',
-                marginBottom: '15px',
-                fontSize: '14px',
-                backgroundColor: '#222',
-                padding: '8px',
-                borderRadius: '4px'
+                marginBottom: '15px', padding: '8px', backgroundColor: '#f1c40f15',
+                borderRadius: '4px', border: '1px solid #f1c40f', color: '#f1c40f',
+                fontWeight: 'bold', textAlign: 'center', fontSize: '16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
             }}>
-                <div title="Attack Damage">
-                    ⚔️ <span style={{ color: '#ff7675' }}>ATK: {attack}</span>
-                </div>
-                <div title="Damage Reduction">
-                    🛡️ <span style={{ color: '#74b9ff' }}>DEF: {defense}</span>
-                </div>
+                <span>🥮</span>
+                <span>{stats.gold || 0} Gold</span>
             </div>
-            {/* ---------------------- */}
+
+            <div style={{ marginBottom: '10px', fontSize: '14px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Level: {stats.level}</span>
+                <span style={{ color: '#f39c12' }}>Floor: {stats.floor || 1}</span>
+            </div>
 
             {/* HP Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span>HP</span>
-                <span>{hp}/{maxHp}</span>
-            </div>
-            <div style={{ height: '12px', backgroundColor: '#222', marginBottom: '15px', borderRadius: '6px', overflow: 'hidden' }}>
-                <div style={{
-                    height: '100%',
-                    width: `${hpPercent}%`,
-                    backgroundColor: hpPercent > 20 ? '#e74c3c' : '#c0392b',
-                    transition: 'width 0.3s ease'
-                }}></div>
-            </div>
-
-            {/* XP Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <span>XP</span>
-                <span>{xp}/{nextLevelXp}</span>
-            </div>
-            <div style={{ height: '12px', backgroundColor: '#222', borderRadius: '6px', overflow: 'hidden' }}>
-                <div style={{
-                    height: '100%',
-                    width: `${xpPercent}%`,
-                    backgroundColor: '#3498db',
-                    transition: 'width 0.3s ease'
-                }}></div>
+            <div style={{ marginBottom: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '3px' }}>
+                    <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>HP</span>
+                    <span>{stats.hp} / {stats.maxHp}</span>
+                </div>
+                <div style={{ width: '100%', height: '8px', backgroundColor: '#444', borderRadius: '4px' }}>
+                    <div style={{
+                        width: `${Math.max(0, (stats.hp / stats.maxHp) * 100)}%`,
+                        height: '100%',
+                        backgroundColor: stats.hp > 20 ? '#e74c3c' : '#c0392b',
+                        borderRadius: '4px', transition: 'width 0.3s'
+                    }} />
+                </div>
             </div>
 
-            <p style={{ fontSize: '11px', color: '#aaa', marginTop: '10px' }}>
-                [H] Heal • [F] Fog
-            </p>
+            {/* Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px' }}>
+
+                {/* ATTACK (Shows Base + Bonus) */}
+                <div style={{ color: '#f1c40f' }}>
+                    ⚔️ ATK: {totalAtk}
+                    {weaponBonus > 0 && <span style={{ fontSize: '10px', marginLeft: '4px', color: '#fff' }}>(+{weaponBonus})</span>}
+                </div>
+
+                {/* DEFENSE (Shows Base + Bonus) */}
+                <div style={{ color: '#3498db' }}>
+                    🛡️ DEF: {totalDef}
+                    {armorBonus > 0 && <span style={{ fontSize: '10px', marginLeft: '4px', color: '#fff' }}>(+{armorBonus})</span>}
+                </div>
+
+                <div style={{ color: '#2ecc71' }}>👟 SPD: {stats.speed || 10}</div>
+
+                {/* HEAL SKILL UI */}
+                <div style={{
+                    color: isReady ? '#2ecc71' : '#95a5a6',
+                    border: '1px solid #444',
+                    padding: '2px 5px',
+                    borderRadius: '4px',
+                    textAlign: 'center',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{
+                        position: 'absolute', left: 0, top: 0, bottom: 0,
+                        width: `${skillPercent}%`,
+                        backgroundColor: '#27ae60',
+                        opacity: 0.2,
+                        zIndex: 0
+                    }} />
+                    <span style={{ position: 'relative', zIndex: 1, fontWeight: 'bold' }}>
+                        {isReady ? "💚 HEAL (H)" : `⏳ ${secondsWait}s`}
+                    </span>
+                </div>
+            </div>
+
+            {/* XP Progress Bar */}
+            <div style={{ marginTop: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '3px', color: '#ccc' }}>
+                    <span style={{ color: '#f1c40f', fontWeight: 'bold' }}>XP</span>
+                    <span>{stats.xp} / {stats.nextLevelXp}</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', backgroundColor: '#444', borderRadius: '3px' }}>
+                    <div style={{
+                        width: `${xpPercent}%`,
+                        height: '100%',
+                        backgroundColor: '#f1c40f',
+                        borderRadius: '3px',
+                        transition: 'width 0.3s',
+                        boxShadow: '0 0 5px rgba(241, 196, 15, 0.5)'
+                    }} />
+                </div>
+            </div>
         </div>
     );
 };

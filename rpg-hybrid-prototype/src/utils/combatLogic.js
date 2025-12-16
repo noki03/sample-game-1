@@ -1,78 +1,73 @@
-export const BOSS_LEVEL_REQ = 5;
-
-// NEW: Calculates a single swing of damage (One Turn)
 export const calculateHit = (attacker, defender) => {
-    // 1. Calculate Raw Damage
-    let rawDmg = 0;
+    // 1. Get Base Stats
+    let atk = attacker.attack || 0;
+    let def = defender.defense || 0;
 
-    // SAFETY: Default level to 1 if missing to prevent NaN
-    const attackerLevel = attacker.level || 1;
-
-    if (attacker.isMonster || attacker.isBoss) {
-        // Monster Damage Logic: Base 5 + (Level * 3)
-        rawDmg = 5 + (attackerLevel * 3);
-    } else {
-        // Player Damage Logic: Uses Attack Stat (which includes items)
-        // SAFETY: Default attack to 0 if missing
-        rawDmg = attacker.attack || 0;
+    // 2. Add Equipment Bonuses (The Fix!)
+    if (attacker.equipment) {
+        if (attacker.equipment.weapon) atk += attacker.equipment.weapon.bonus;
+    }
+    if (defender.equipment) {
+        if (defender.equipment.armor) def += defender.equipment.armor.bonus;
+        // Note: Currently monsters don't have equipment, but player does
     }
 
-    // 2. Defense Mitigation
-    // SAFETY: Default defense to 0 if missing
-    const defense = defender.defense || 0;
+    // 3. Crit Logic (5% Base + Dexterity/Luck factor could be added here)
+    const isCrit = Math.random() < 0.1; // 10% flat crit chance for now
+    if (isCrit) atk = Math.floor(atk * 1.5);
 
-    // Prevent negative damage (minimum 1)
-    let actualDmg = Math.max(1, rawDmg - defense);
+    // 4. Hit Chance (Based on Agility/Speed diff? Simplified for now)
+    // Let's say 5% chance to miss
+    const isMiss = Math.random() < 0.05;
+    if (isMiss) return { isMiss: true, isCrit: false, damage: 0 };
 
-    // 3. Critical Hit Chance (Only for Player)
-    let isCrit = false;
-    if (!attacker.isMonster && !attacker.isBoss) {
-        const defenderLevel = defender.level || 1;
-        // If Player ATK > 2x Enemy Level, 20% chance to Crit
-        if (attacker.attack > defenderLevel * 2) {
-            if (Math.random() > 0.8) {
-                actualDmg = Math.floor(actualDmg * 1.5);
-                isCrit = true;
-            }
-        }
-    }
+    // 5. Damage Calculation
+    // Simple Subtraction, but ensure at least 1 damage
+    let damage = atk - def;
 
-    // FINAL SAFETY: If math somehow still failed, return 0 damage
-    if (isNaN(actualDmg)) {
-        console.warn("Damage calculation resulted in NaN, defaulting to 0");
-        actualDmg = 0;
-    }
+    // Variance (+/- 10%)
+    const variance = (Math.random() * 0.2) + 0.9;
+    damage = Math.floor(damage * variance);
 
-    return { damage: actualDmg, isCrit };
+    if (damage < 1) damage = 1; // Always deal at least 1 damage
+
+    return { isMiss: false, isCrit, damage };
 };
 
-export const processLevelUp = (currentStats, xpGain) => {
-    // IMPORTANT: Clone everything to preserve inventory/equipment
-    const stats = { ...currentStats };
-
-    stats.xp += xpGain;
+export const processLevelUp = (player, xpGain) => {
+    let newXp = player.xp + xpGain;
+    let newLevel = player.level;
+    let newMaxHp = player.maxHp;
+    let newAttack = player.attack;
+    let newDefense = player.defense;
     let leveledUp = false;
 
-    // Ensure nextLevelXp is valid
-    if (!stats.nextLevelXp || isNaN(stats.nextLevelXp)) {
-        stats.nextLevelXp = 100;
-    }
-
-    while (stats.xp >= stats.nextLevelXp) {
-        stats.level += 1;
-        stats.maxHp += 20;
-        stats.attack += 2;
-        stats.defense += 1;
-
-        stats.hp = stats.maxHp;
-        stats.xp = stats.xp - stats.nextLevelXp;
-        stats.nextLevelXp = Math.floor(stats.nextLevelXp * 1.5);
+    // Loop in case of multiple levels at once (killing a boss)
+    while (newXp >= player.nextLevelXp) {
+        newXp -= player.nextLevelXp;
+        newLevel++;
         leveledUp = true;
+
+        // Stat Growth
+        newMaxHp += 10 + Math.floor(newLevel * 2);
+        newAttack += 2;
+        newDefense += 1;
+
+        // Increase XP req for next level
+        player.nextLevelXp = Math.floor(player.nextLevelXp * 1.2);
     }
 
     return {
-        updatedStats: stats,
         leveledUp,
-        level: stats.level
+        level: newLevel,
+        updatedStats: {
+            xp: newXp,
+            level: newLevel,
+            maxHp: newMaxHp,
+            hp: leveledUp ? newMaxHp : player.hp, // Full heal on level up? Or just current? Let's Full Heal.
+            attack: newAttack,
+            defense: newDefense,
+            nextLevelXp: player.nextLevelXp
+        }
     };
 };

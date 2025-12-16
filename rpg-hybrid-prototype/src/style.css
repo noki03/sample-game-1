@@ -139,7 +139,17 @@ code {
   }
 }
 
-.hero-sprite {
+/* .hero-sprite {
   animation: heroBob 2s ease-in-out infinite, heroPulse 2s infinite alternate;
   image-rendering: pixelated;
+} */
+
+.hero-sprite {
+  /* Existing animations */
+  animation: heroBob 1.5s ease-in-out infinite, heroPulse 2s infinite alternate;
+  image-rendering: pixelated;
+
+  /* NEW: Smooth Movement Simulation */
+  /* This effectively animates the 'transform' property if we were moving it via CSS */
+  transition: all 0.1s linear;
 }
