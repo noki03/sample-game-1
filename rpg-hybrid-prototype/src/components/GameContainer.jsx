@@ -125,6 +125,9 @@ const GameContainer = () => {
                             isFogEnabled={isFogEnabled} floatingTexts={floatingTexts}
                             hitTargetId={hitTargetId} visitedTiles={visitedTiles}
                             onTileClick={handleTileClick}
+                            // --- PASS THESE NEW PROPS ---
+                            playerHealth={player.hp}
+                            playerMaxHealth={player.maxHp}
                         />
                         <div style={{
                             marginTop: '10px', fontSize: '14px', color: '#666', textAlign: 'center',
